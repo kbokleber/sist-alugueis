@@ -10,6 +10,7 @@ from app.schemas import (
     ResponseWrapper,
 )
 from app.services.property_service import PropertyService
+from app.services.audit_service import AuditService
 from app.dependencies import get_current_user
 from app.models import User
 
@@ -41,6 +42,17 @@ async def create_property(
         property_value=data.property_value,
         monthly_depreciation_percent=data.monthly_depreciation_percent,
     )
+
+    # Audit log
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="CREATE",
+        entity_type="property",
+        entity_id=prop.id,
+        new_values=data.model_dump(),
+    )
+
     return ResponseWrapper(data=prop, message="Property created successfully")
 
 
@@ -69,7 +81,28 @@ async def update_property(
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
+    # Capture old values before update
+    old_values = {
+        "name": prop.name,
+        "address": prop.address,
+        "property_value": float(prop.property_value),
+        "monthly_depreciation_percent": float(prop.monthly_depreciation_percent) if prop.monthly_depreciation_percent else None,
+        "is_active": prop.is_active,
+    }
+
     updated = await service.update(prop, data.model_dump(exclude_unset=True))
+
+    # Audit log
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="UPDATE",
+        entity_type="property",
+        entity_id=property_id,
+        old_values=old_values,
+        new_values=data.model_dump(exclude_unset=True),
+    )
+
     return ResponseWrapper(data=updated)
 
 
@@ -84,7 +117,26 @@ async def delete_property(
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
+    # Capture old values before delete
+    old_values = {
+        "name": prop.name,
+        "address": prop.address,
+        "property_value": float(prop.property_value),
+        "is_active": prop.is_active,
+    }
+
     await service.delete(prop)
+
+    # Audit log
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="DELETE",
+        entity_type="property",
+        entity_id=property_id,
+        old_values=old_values,
+    )
+
     return {"message": "Property deleted successfully"}
 
 

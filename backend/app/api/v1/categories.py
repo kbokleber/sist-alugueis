@@ -9,6 +9,7 @@ from app.schemas import (
     ResponseWrapper,
 )
 from app.services.category_service import CategoryService
+from app.services.audit_service import AuditService
 from app.dependencies import get_current_user
 from app.models import User, CategoryType
 
@@ -35,6 +36,17 @@ async def create_category(
 ):
     service = CategoryService(db)
     category = await service.create(current_user.id, data.model_dump())
+
+    # Audit log
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="CREATE",
+        entity_type="category",
+        entity_id=category.id,
+        new_values=data.model_dump(),
+    )
+
     return ResponseWrapper(data=category, message="Category created successfully")
 
 
@@ -63,7 +75,26 @@ async def update_category(
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
+    # Capture old values before update
+    old_values = {
+        "name": category.name,
+        "type": category.type.value if hasattr(category.type, 'value') else str(category.type),
+        "is_active": category.is_active,
+    }
+
     updated = await service.update(category, data.model_dump(exclude_unset=True))
+
+    # Audit log
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="UPDATE",
+        entity_type="category",
+        entity_id=category_id,
+        old_values=old_values,
+        new_values=data.model_dump(exclude_unset=True),
+    )
+
     return ResponseWrapper(data=updated)
 
 
@@ -78,9 +109,26 @@ async def delete_category(
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
+    # Capture old values before delete
+    old_values = {
+        "name": category.name,
+        "type": category.type.value if hasattr(category.type, 'value') else str(category.type),
+        "is_active": category.is_active,
+    }
+
     try:
         await service.delete(category)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    # Audit log
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="DELETE",
+        entity_type="category",
+        entity_id=category_id,
+        old_values=old_values,
+    )
 
     return {"message": "Category deleted successfully"}

@@ -1,7 +1,7 @@
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
-import { Menu, X, Home, Building, TrendingUp, TrendingDown, PieChart, Users, Settings, LogOut } from 'lucide-react'
+import { Menu, X, Home, Building, TrendingUp, TrendingDown, PieChart, Users, Settings, LogOut, History } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { label: 'Despesas', path: '/expenses', icon: TrendingDown },
   { label: 'Fechamento', path: '/closing', icon: PieChart },
   { label: 'Usuários', path: '/users', icon: Users },
+  { label: 'Auditoria', path: '/audit', icon: History },
 ]
 
 export default function Layout() {

@@ -8,6 +8,7 @@ import RevenuesPage from '@/pages/RevenuesPage'
 import ExpensesPage from '@/pages/ExpensesPage'
 import ClosingPage from '@/pages/ClosingPage'
 import UsersPage from '@/pages/UsersPage'
+import AuditPage from '@/pages/AuditPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -67,7 +68,15 @@ export default function AppRouter() {
           </ProtectedRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route
+        path="/audit"
+        element={
+          <ProtectedRoute>
+            <AuditPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*"} element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }

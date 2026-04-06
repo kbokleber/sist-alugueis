@@ -155,9 +155,47 @@ sist-alugueis/
 ### Coolify
 
 1. Conectar repositório GitHub ao Coolify
-2. Criar 2 aplicações: `backend` e `frontend`
-3. Configurar variáveis de ambiente
+2. Criar 2 serviços: `backend` e `frontend`
+3. Configurar variáveis de ambiente conforme abaixo
 4. Deploy automático na branch `main`
+
+#### Backend — Variáveis Coolify
+
+```env
+APP_ENV=production
+DEBUG=false
+DATABASE_URL=postgresql+asyncpg://USER:PASS@HOST:5432/sist_alugueis
+JWT_SECRET_KEY=<gerar_chave_32_chars>
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=15
+REFRESH_TOKEN_EXPIRE_DAYS=7
+ALLOWED_ORIGINS=https://seu-dominio.com
+```
+
+**Comando start:**
+```bash
+gunicorn app.main:app --workers 4 --bind 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker
+```
+
+Ou para desenvolvimento:
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**Porta:** 8000
+
+**Buildpack:** Python
+
+#### Frontend — Variáveis Coolify
+
+```env
+VITE_API_BASE_URL=https://api.seu-dominio.com
+VITE_APP_NAME=Sistema de Aluguéis
+```
+
+**Porta:** 3000
+
+**Buildpack:** Node
 
 ### Docker Compose (Produção)
 

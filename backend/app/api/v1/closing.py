@@ -10,6 +10,7 @@ from app.schemas import (
 )
 from app.services.closing_service import ClosingService
 from app.services.property_service import PropertyService
+from app.services.audit_service import AuditService
 from app.dependencies import get_current_user
 from app.models import User
 
@@ -63,6 +64,20 @@ async def generate_closing(
         property_id=data.property_id,
         year_month=data.year_month,
     )
+
+    # Audit log
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="CREATE",
+        entity_type="closing",
+        entity_id=closing.id,
+        new_values={
+            "property_id": str(data.property_id),
+            "year_month": data.year_month,
+        },
+    )
+
     return ResponseWrapper(data=closing, message="Closing generated successfully")
 
 
@@ -92,7 +107,24 @@ async def close_period(
     if not closing:
         raise HTTPException(status_code=404, detail="Closing not found")
 
+    # Capture old values
+    old_values = {
+        "status": closing.status.value if hasattr(closing.status, 'value') else str(closing.status),
+    }
+
     updated = await service.close_period(closing)
+
+    # Audit log
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="UPDATE",
+        entity_type="closing",
+        entity_id=closing.id,
+        old_values=old_values,
+        new_values={"status": "CLOSED", "action": "period_closed"},
+    )
+
     return ResponseWrapper(data=updated, message="Period closed successfully")
 
 
@@ -108,7 +140,24 @@ async def reopen_period(
     if not closing:
         raise HTTPException(status_code=404, detail="Closing not found")
 
+    # Capture old values
+    old_values = {
+        "status": closing.status.value if hasattr(closing.status, 'value') else str(closing.status),
+    }
+
     updated = await service.reopen_period(closing)
+
+    # Audit log
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="UPDATE",
+        entity_type="closing",
+        entity_id=closing.id,
+        old_values=old_values,
+        new_values={"status": "DRAFT", "action": "period_reopened"},
+    )
+
     return ResponseWrapper(data=updated, message="Period reopened successfully")
 
 

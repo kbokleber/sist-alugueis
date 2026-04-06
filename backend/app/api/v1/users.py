@@ -11,6 +11,7 @@ from app.schemas import (
     PaginatedResponse,
 )
 from app.services.user_service import UserService
+from app.services.audit_service import AuditService
 from app.dependencies import get_current_user, get_current_superuser
 from app.models import User
 
@@ -65,7 +66,27 @@ async def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Capture old values before update
+    old_values = {
+        "full_name": user.full_name,
+        "email": user.email,
+        "is_active": user.is_active,
+        "is_superuser": user.is_superuser,
+    }
+
     updated = await service.update(user, data.model_dump(exclude_unset=True))
+
+    # Audit log
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="UPDATE",
+        entity_type="user",
+        entity_id=user_id,
+        old_values=old_values,
+        new_values=data.model_dump(exclude_unset=True),
+    )
+
     return ResponseWrapper(data=updated)
 
 
@@ -87,5 +108,15 @@ async def change_password(
     success = await service.change_password(user, data)
     if not success:
         raise HTTPException(status_code=400, detail="Current password is incorrect")
+
+    # Audit log for password change
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="UPDATE",
+        entity_type="user_password",
+        entity_id=user_id,
+        new_values={"action": "password_changed"},
+    )
 
     return {"message": "Password changed successfully"}

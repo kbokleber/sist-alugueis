@@ -11,6 +11,7 @@ from app.schemas import (
     PaginatedResponse,
 )
 from app.services.revenue_service import RevenueService
+from app.services.audit_service import AuditService
 from app.dependencies import get_current_user
 from app.models import User
 
@@ -58,6 +59,17 @@ async def create_revenue(
 ):
     service = RevenueService(db)
     revenue = await service.create(current_user.id, data.model_dump())
+
+    # Audit log
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="CREATE",
+        entity_type="revenue",
+        entity_id=revenue.id,
+        new_values=data.model_dump(),
+    )
+
     return ResponseWrapper(data=revenue, message="Revenue created successfully")
 
 
@@ -98,7 +110,32 @@ async def update_revenue(
     if not revenue:
         raise HTTPException(status_code=404, detail="Revenue not found")
 
+    # Capture old values before update
+    old_values = {
+        "property_id": str(revenue.property_id),
+        "amount": float(revenue.amount),
+        "rental_amount": float(revenue.rental_amount) if revenue.rental_amount else None,
+        "guest_name": revenue.guest_name,
+        "check_in": revenue.check_in.isoformat() if revenue.check_in else None,
+        "check_out": revenue.check_out.isoformat() if revenue.check_out else None,
+        "listing_source": revenue.listing_source,
+        "status": revenue.status.value if hasattr(revenue.status, 'value') else str(revenue.status),
+        "notes": revenue.notes,
+    }
+
     updated = await service.update(revenue, data.model_dump(exclude_unset=True))
+
+    # Audit log
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="UPDATE",
+        entity_type="revenue",
+        entity_id=revenue_id,
+        old_values=old_values,
+        new_values=data.model_dump(exclude_unset=True),
+    )
+
     return ResponseWrapper(data=updated)
 
 
@@ -113,5 +150,28 @@ async def delete_revenue(
     if not revenue:
         raise HTTPException(status_code=404, detail="Revenue not found")
 
+    # Capture old values before delete
+    old_values = {
+        "property_id": str(revenue.property_id),
+        "amount": float(revenue.amount),
+        "rental_amount": float(revenue.rental_amount) if revenue.rental_amount else None,
+        "guest_name": revenue.guest_name,
+        "check_in": revenue.check_in.isoformat() if revenue.check_in else None,
+        "check_out": revenue.check_out.isoformat() if revenue.check_out else None,
+        "listing_source": revenue.listing_source,
+        "status": revenue.status.value if hasattr(revenue.status, 'value') else str(revenue.status),
+    }
+
     await service.delete(revenue)
+
+    # Audit log
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="DELETE",
+        entity_type="revenue",
+        entity_id=revenue_id,
+        old_values=old_values,
+    )
+
     return {"message": "Revenue deleted successfully"}
