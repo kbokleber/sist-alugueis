@@ -63,6 +63,7 @@ from app.schemas.dashboard import (
     ChartDataset,
     ChartPieData,
     ChartPieDataset,
+    DashboardKPIs,
 )
 
 __all__ = [
@@ -114,4 +115,5 @@ __all__ = [
     "ChartDataset",
     "ChartPieData",
     "ChartPieDataset",
+    "DashboardKPIs",
 ]

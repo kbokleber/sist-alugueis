@@ -7,6 +7,7 @@ from app.schemas import (
     PropertyDashboardData,
     ChartBarData,
     ChartPieData,
+    DashboardKPIs,
     ResponseWrapper,
 )
 from app.services.dashboard_service import DashboardService
@@ -100,3 +101,15 @@ async def get_timeline(
     service = DashboardService(db)
     data = await service.get_bar_chart_data(current_user.id, property_id, months)
     return ResponseWrapper(data=data)
+
+
+@router.get("/kpis", response_model=ResponseWrapper[DashboardKPIs])
+async def get_kpis(
+    year_month: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get main KPIs for dashboard"""
+    service = DashboardService(db)
+    kpis = await service.get_kpis(current_user.id, year_month)
+    return ResponseWrapper(data=kpis)

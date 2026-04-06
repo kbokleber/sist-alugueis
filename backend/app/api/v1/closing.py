@@ -110,3 +110,65 @@ async def reopen_period(
 
     updated = await service.reopen_period(closing)
     return ResponseWrapper(data=updated, message="Period reopened successfully")
+
+
+@router.get("/{property_id}/{year_month}/export")
+async def export_closing_csv(
+    property_id: uuid.UUID,
+    year_month: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Export closing data as CSV"""
+    from fastapi.responses import StreamingResponse
+    from app.services.property_service import PropertyService
+    import csv
+    import io
+
+    service = ClosingService(db)
+    closing = await service.get_closing(current_user.id, property_id, year_month)
+    if not closing:
+        raise HTTPException(status_code=404, detail="Closing not found")
+
+    prop_service = PropertyService(db)
+    prop = await prop_service.get_by_id(property_id, current_user.id)
+    property_name = prop.name if prop else "Unknown"
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header info
+    writer.writerow(["FECHAMENTO MENSAL"])
+    writer.writerow(["Imóvel", property_name])
+    writer.writerow(["Período", year_month])
+    writer.writerow(["Status", closing.status.value if hasattr(closing.status, 'value') else closing.status])
+    writer.writerow([])
+    
+    # Summary KPIs
+    writer.writerow(["RESUMO"])
+    writer.writerow(["Total Receitas", closing.total_revenue])
+    writer.writerow(["Total Despesas", closing.total_expenses])
+    writer.writerow(["Resultado Bruto", closing.total_revenue - closing.total_expenses])
+    writer.writerow(["Depreciação", closing.depreciation_value])
+    writer.writerow(["Resultado Líquido", closing.net_result])
+    writer.writerow([])
+    
+    # Details
+    writer.writerow(["DETALHES"])
+    writer.writerow(["Noites Ocupadas", closing.total_nights])
+    writer.writerow(["Total de Aluguéis", closing.total_bookings])
+    writer.writerow(["Taxa de Limpeza", closing.cleaning_total])
+    writer.writerow(["Taxa de Plataforma", closing.platform_fee_total])
+    writer.writerow(["Outras Despesas", closing.other_expenses])
+    
+    if closing.notes:
+        writer.writerow([])
+        writer.writerow(["Observações", closing.notes])
+    
+    output.seek(0)
+    filename = f"fechamento-{property_name.replace(' ', '-')}-{year_month}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )

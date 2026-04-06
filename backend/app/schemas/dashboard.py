@@ -69,3 +69,17 @@ class ChartPieData(BaseModel):
 class ChartPieDataset(BaseModel):
     data: list[float]
     backgroundColor: list[str]
+
+
+class DashboardKPIs(BaseModel):
+    """KPIs for dashboard overview"""
+    total_revenue: float
+    total_expenses: float
+    net_result: float
+    total_nights: int
+    total_bookings: int
+    average_booking_value: float
+    occupancy_rate: float  # percentage
+    properties_count: int
+    top_property: str | None
+    top_property_revenue: float

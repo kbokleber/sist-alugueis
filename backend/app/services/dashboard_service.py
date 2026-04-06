@@ -225,3 +225,79 @@ class DashboardService:
             "labels": labels,
             "datasets": [{"data": data, "backgroundColor": colors}],
         }
+
+    async def get_kpis(self, user_id: uuid.UUID, year_month: str | None = None) -> dict:
+        """Get main KPIs for dashboard"""
+        from app.models import Property
+        
+        # Get all properties
+        props_result = await self.db.execute(
+            select(Property).where(Property.user_id == user_id, Property.is_active == True)
+        )
+        properties = list(props_result.scalars().all())
+        
+        # Calculate totals
+        rev_query = select(
+            func.coalesce(func.sum(RentalRevenue.gross_amount), 0).label("total_revenue"),
+            func.coalesce(func.sum(RentalRevenue.net_amount), 0).label("net_revenue"),
+            func.coalesce(func.sum(RentalRevenue.nights), 0).label("total_nights"),
+            func.count(RentalRevenue.id).label("total_bookings"),
+        ).where(RentalRevenue.user_id == user_id)
+        
+        exp_query = select(
+            func.coalesce(func.sum(PropertyExpense.amount), 0).label("total_expenses"),
+        ).where(PropertyExpense.user_id == user_id)
+        
+        if year_month:
+            rev_query = rev_query.where(RentalRevenue.year_month == year_month)
+            exp_query = exp_query.where(PropertyExpense.year_month == year_month)
+        
+        rev_res = await self.db.execute(rev_query)
+        exp_res = await self.db.execute(exp_query)
+        
+        rev_data = rev_res.one()
+        exp_data = exp_res.one()
+        
+        total_revenue = float(rev_data.total_revenue or 0)
+        total_expenses = float(exp_data.total_expenses or 0)
+        total_nights = rev_data.total_nights or 0
+        total_bookings = rev_data.total_bookings or 0
+        
+        # Calculate average booking value
+        average_booking_value = total_revenue / total_bookings if total_bookings > 0 else 0
+        
+        # Find top property
+        top_property = None
+        top_property_revenue = 0
+        if properties:
+            for prop in properties:
+                prop_rev_query = select(
+                    func.coalesce(func.sum(RentalRevenue.gross_amount), 0).label("prop_rev")
+                ).where(
+                    RentalRevenue.user_id == user_id,
+                    RentalRevenue.property_id == prop.id
+                )
+                if year_month:
+                    prop_rev_query = prop_rev_query.where(RentalRevenue.year_month == year_month)
+                prop_rev_res = await self.db.execute(prop_rev_query)
+                prop_rev = float(prop_rev_res.scalar() or 0)
+                if prop_rev > top_property_revenue:
+                    top_property_revenue = prop_rev
+                    top_property = prop.name
+        
+        # Calculate occupancy rate (simplified - based on max 30 nights per month)
+        max_nights = len(properties) * 30
+        occupancy_rate = (total_nights / max_nights * 100) if max_nights > 0 else 0
+        
+        return {
+            "total_revenue": total_revenue,
+            "total_expenses": total_expenses,
+            "net_result": float(rev_data.net_revenue or 0) - total_expenses,
+            "total_nights": total_nights,
+            "total_bookings": total_bookings,
+            "average_booking_value": average_booking_value,
+            "occupancy_rate": round(occupancy_rate, 1),
+            "properties_count": len(properties),
+            "top_property": top_property,
+            "top_property_revenue": top_property_revenue,
+        }
