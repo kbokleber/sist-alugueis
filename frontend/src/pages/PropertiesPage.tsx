@@ -6,15 +6,22 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { toast } from '@/stores/toastStore'
 import { formatMoney } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Building } from 'lucide-react'
+import { Plus, Pencil, Trash2, Building, Loader2 } from 'lucide-react'
+import type { Property } from '@/types/property.types'
 
 export default function PropertiesPage() {
   const [showForm, setShowForm] = useState(false)
-  const [editing, setEditing] = useState<string | null>(null)
+  const [editing, setEditing] = useState<Property | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
   const [propertyValue, setPropertyValue] = useState('')
+  const [depreciation, setDepreciation] = useState('0.5')
+
   const queryClient = useQueryClient()
 
   const { data: properties = [], isLoading } = useQuery({
@@ -23,35 +30,78 @@ export default function PropertiesPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; address: string; property_value: number }) =>
+    mutationFn: (data: { name: string; address: string; property_value: number; monthly_depreciation_percent: number }) =>
       propertiesApi.create(data),
     onSuccess: () => {
+      toast.success('Imóvel criado com sucesso!')
       queryClient.invalidateQueries({ queryKey: ['properties'] })
       resetForm()
+    },
+    onError: () => {
+      toast.error('Erro ao criar imóvel. Verifique os dados.')
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof propertiesApi.update>[1] }) =>
+      propertiesApi.update(id, data),
+    onSuccess: () => {
+      toast.success('Imóvel atualizado com sucesso!')
+      queryClient.invalidateQueries({ queryKey: ['properties'] })
+      resetForm()
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar imóvel.')
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: propertiesApi.delete,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['properties'] }),
+    onSuccess: () => {
+      toast.success('Imóvel excluído com sucesso!')
+      setDeleteConfirm(null)
+      queryClient.invalidateQueries({ queryKey: ['properties'] })
+    },
+    onError: () => {
+      toast.error('Erro ao excluir imóvel.')
+      setDeleteConfirm(null)
+    },
   })
 
   const resetForm = () => {
     setName('')
     setAddress('')
     setPropertyValue('')
+    setDepreciation('0.5')
     setShowForm(false)
     setEditing(null)
   }
 
+  const handleEdit = (property: Property) => {
+    setEditing(property)
+    setName(property.name)
+    setAddress(property.address || '')
+    setPropertyValue(String(property.property_value))
+    setDepreciation(String(property.monthly_depreciation_percent))
+    setShowForm(true)
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    createMutation.mutate({
+    const data = {
       name,
-      address,
+      address: address || undefined,
       property_value: Number(propertyValue),
-    })
+      monthly_depreciation_percent: Number(depreciation),
+    }
+    if (editing) {
+      updateMutation.mutate({ id: editing.id, data })
+    } else {
+      createMutation.mutate(data)
+    }
   }
+
+  const isPending = createMutation.isPending || updateMutation.isPending
 
   return (
     <PageContainer
@@ -68,7 +118,7 @@ export default function PropertiesPage() {
             <h2 className="text-base font-medium">{editing ? 'Editar Imóvel' : 'Novo Imóvel'}</h2>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-3">
+            <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Input
                 label="Nome do Imóvel"
                 value={name}
@@ -90,9 +140,18 @@ export default function PropertiesPage() {
                 placeholder="500000"
                 required
               />
-              <div className="sm:col-span-3 flex gap-2">
-                <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? 'Salvando...' : 'Salvar'}
+              <Input
+                label="Depreciação (%/mês)"
+                type="number"
+                step="0.1"
+                value={depreciation}
+                onChange={(e) => setDepreciation(e.target.value)}
+                placeholder="0.5"
+              />
+              <div className="sm:col-span-2 lg:col-span-4 flex gap-2">
+                <Button type="submit" disabled={isPending}>
+                  {isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+                  {isPending ? 'Salvando...' : 'Salvar'}
                 </Button>
                 <Button type="button" variant="outline" onClick={resetForm}>
                   Cancelar
@@ -103,9 +162,14 @@ export default function PropertiesPage() {
         </Card>
       )}
 
-      {isLoading ? (
-        <div className="text-center py-12 text-slate-500">Carregando...</div>
-      ) : properties.length === 0 ? (
+      {isLoading && (
+        <div className="flex items-center justify-center py-12 text-slate-500">
+          <Loader2 className="h-8 w-8 animate-spin mr-2" />
+          Carregando...
+        </div>
+      )}
+
+      {!isLoading && properties.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center text-slate-500">
             <Building className="mx-auto h-12 w-12 text-slate-300 mb-3" />
@@ -113,15 +177,17 @@ export default function PropertiesPage() {
             <p className="text-sm mt-1">Clique em "Novo Imóvel" para começar</p>
           </CardContent>
         </Card>
-      ) : (
+      )}
+
+      {!isLoading && properties.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {properties.map((property) => (
             <Card key={property.id}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{property.name}</h3>
-                    <p className="text-sm text-slate-500 mt-1">{property.address || 'Sem endereço'}</p>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-slate-900 truncate">{property.name}</h3>
+                    <p className="text-sm text-slate-500 mt-1 truncate">{property.address || 'Sem endereço'}</p>
                     <div className="mt-3 space-y-1">
                       <p className="text-sm">
                         <span className="text-slate-500">Valor:</span>{' '}
@@ -138,17 +204,13 @@ export default function PropertiesPage() {
                   </Badge>
                 </div>
                 <div className="mt-4 flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setEditing(property.id)}>
+                  <Button size="sm" variant="outline" onClick={() => handleEdit(property)}>
                     <Pencil className="h-3 w-3" />
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => {
-                      if (confirm('Excluir este imóvel?')) {
-                        deleteMutation.mutate(property.id)
-                      }
-                    }}
+                    onClick={() => setDeleteConfirm(property.id)}
                   >
                     <Trash2 className="h-3 w-3 text-red-500" />
                   </Button>
@@ -158,6 +220,17 @@ export default function PropertiesPage() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        title="Excluir Imóvel"
+        message="Tem certeza que deseja excluir este imóvel? Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteConfirm && deleteMutation.mutate(deleteConfirm)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </PageContainer>
   )
 }

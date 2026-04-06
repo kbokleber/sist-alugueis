@@ -7,18 +7,24 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { toast } from '@/stores/toastStore'
 import { formatMoney } from '@/lib/utils'
-import { Plus, Trash2, TrendingDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, TrendingDown, Loader2 } from 'lucide-react'
+import type { Expense } from '@/types/expense.types'
 
 export default function ExpensesPage() {
   const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<Expense | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+
   const [propertyId, setPropertyId] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [name, setName] = useState('')
   const [amount, setAmount] = useState('')
   const [yearMonth, setYearMonth] = useState('')
   const [dueDate, setDueDate] = useState('')
-  const [status, setStatus] = useState<'PENDING' | 'PAID' | 'CANCELLED'>('PENDING')
+
   const queryClient = useQueryClient()
 
   const { data: expenses = [], isLoading } = useQuery({
@@ -39,19 +45,50 @@ export default function ExpensesPage() {
   const createMutation = useMutation({
     mutationFn: expensesApi.create,
     onSuccess: () => {
+      toast.success('Despesa criada com sucesso!')
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
       resetForm()
+    },
+    onError: () => {
+      toast.error('Erro ao criar despesa. Verifique os dados.')
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Parameters<typeof expensesApi.update>[1] }) =>
+      expensesApi.update(id, data),
+    onSuccess: () => {
+      toast.success('Despesa atualizada com sucesso!')
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      resetForm()
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar despesa.')
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: expensesApi.delete,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+    onSuccess: () => {
+      toast.success('Despesa excluída com sucesso!')
+      setDeleteConfirm(null)
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
+    },
+    onError: () => {
+      toast.error('Erro ao excluir despesa.')
+      setDeleteConfirm(null)
+    },
   })
 
   const markPaidMutation = useMutation({
     mutationFn: expensesApi.markPaid,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['expenses'] }),
+    onSuccess: () => {
+      toast.success('Despesa marcada como paga!')
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
+    },
+    onError: () => {
+      toast.error('Erro ao marcar despesa como paga.')
+    },
   })
 
   const resetForm = () => {
@@ -61,23 +98,39 @@ export default function ExpensesPage() {
     setAmount('')
     setYearMonth('')
     setDueDate('')
-    setStatus('PENDING')
     setShowForm(false)
+    setEditing(null)
+  }
+
+  const handleEdit = (exp: Expense) => {
+    setEditing(exp)
+    setPropertyId(exp.property_id)
+    setCategoryId(exp.category_id)
+    setName(exp.name)
+    setAmount(String(exp.amount))
+    setYearMonth(exp.year_month)
+    setDueDate(exp.due_date || '')
+    setShowForm(true)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    createMutation.mutate({
+    const data = {
       property_id: propertyId,
       category_id: categoryId,
       name,
       amount: Number(amount),
       year_month: yearMonth,
       due_date: dueDate || undefined,
-      status,
-    })
+    }
+    if (editing) {
+      updateMutation.mutate({ id: editing.id, data })
+    } else {
+      createMutation.mutate(data)
+    }
   }
 
+  const isPending = createMutation.isPending || updateMutation.isPending
   const totalPending = expenses.filter((e) => e.status === 'PENDING').reduce((s, e) => s + e.amount, 0)
   const totalPaid = expenses.filter((e) => e.status === 'PAID').reduce((s, e) => s + e.amount, 0)
 
@@ -119,7 +172,9 @@ export default function ExpensesPage() {
 
       {showForm && (
         <Card className="mb-6">
-          <CardHeader><h2 className="text-base font-medium">Nova Despesa</h2></CardHeader>
+          <CardHeader>
+            <h2 className="text-base font-medium">{editing ? 'Editar Despesa' : 'Nova Despesa'}</h2>
+          </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <select
@@ -147,8 +202,9 @@ export default function ExpensesPage() {
               <Input placeholder="Ano-mês (ex: 2026-04)" value={yearMonth} onChange={(e) => setYearMonth(e.target.value)} required />
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               <div className="lg:col-span-3 flex gap-2">
-                <Button type="submit" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? 'Salvando...' : 'Salvar'}
+                <Button type="submit" disabled={isPending}>
+                  {isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+                  {isPending ? 'Salvando...' : 'Salvar'}
                 </Button>
                 <Button type="button" variant="outline" onClick={resetForm}>Cancelar</Button>
               </div>
@@ -157,16 +213,24 @@ export default function ExpensesPage() {
         </Card>
       )}
 
-      {isLoading ? (
-        <div className="text-center py-12 text-slate-500">Carregando...</div>
-      ) : expenses.length === 0 ? (
+      {isLoading && (
+        <div className="flex items-center justify-center py-12 text-slate-500">
+          <Loader2 className="h-8 w-8 animate-spin mr-2" />
+          Carregando...
+        </div>
+      )}
+
+      {!isLoading && expenses.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center text-slate-500">
             <TrendingDown className="mx-auto h-12 w-12 text-slate-300 mb-3" />
             <p className="font-medium">Nenhuma despesa cadastrada</p>
+            <p className="text-sm mt-1">Clique em "Nova Despesa" para começar</p>
           </CardContent>
         </Card>
-      ) : (
+      )}
+
+      {!isLoading && expenses.length > 0 && (
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -191,17 +255,29 @@ export default function ExpensesPage() {
                       <td className="px-4 py-3 text-slate-600">{exp.due_date || '—'}</td>
                       <td className="px-4 py-3 text-right text-red-600">{formatMoney(exp.amount)}</td>
                       <td className="px-4 py-3">{statusBadge(exp.status)}</td>
-                      <td className="px-4 py-3 flex gap-1">
-                        {exp.status === 'PENDING' && (
-                          <Button size="sm" variant="ghost" onClick={() => markPaidMutation.mutate(exp.id)}>
-                            <span className="text-xs text-green-600">Pagar</span>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="outline" onClick={() => handleEdit(exp)}>
+                            <Pencil className="h-3 w-3" />
                           </Button>
-                        )}
-                        <Button size="sm" variant="ghost" onClick={() => {
-                          if (confirm('Excluir?')) deleteMutation.mutate(exp.id)
-                        }}>
-                          <Trash2 className="h-3 w-3 text-red-500" />
-                        </Button>
+                          {exp.status === 'PENDING' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => markPaidMutation.mutate(exp.id)}
+                              disabled={markPaidMutation.isPending}
+                            >
+                              <span className="text-xs text-green-600">Pagar</span>
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setDeleteConfirm(exp.id)}
+                          >
+                            <Trash2 className="h-3 w-3 text-red-500" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -211,6 +287,17 @@ export default function ExpensesPage() {
           </CardContent>
         </Card>
       )}
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        title="Excluir Despesa"
+        message="Tem certeza que deseja excluir esta despesa? Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteConfirm && deleteMutation.mutate(deleteConfirm)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
     </PageContainer>
   )
 }
