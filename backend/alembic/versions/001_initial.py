@@ -21,7 +21,7 @@ def upgrade() -> None:
     # Create users table
     op.create_table(
         'users',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column('id', sa.Uuid, primary_key=True),
         sa.Column('email', sa.String(255), unique=True, nullable=False, index=True),
         sa.Column('hashed_password', sa.String(255), nullable=False),
         sa.Column('full_name', sa.String(255), nullable=False),
@@ -34,8 +34,8 @@ def upgrade() -> None:
     # Create properties table
     op.create_table(
         'properties',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id'), nullable=False, index=True),
+        sa.Column('id', sa.Uuid, primary_key=True),
+        sa.Column('user_id', sa.Uuid, sa.ForeignKey('users.id'), nullable=False, index=True),
         sa.Column('name', sa.String(255), nullable=False),
         sa.Column('address', sa.Text, nullable=True),
         sa.Column('property_value', sa.Numeric(15, 2), nullable=False),
@@ -48,8 +48,8 @@ def upgrade() -> None:
     # Create financial_categories table
     op.create_table(
         'financial_categories',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id'), nullable=False, index=True),
+        sa.Column('id', sa.Uuid, primary_key=True),
+        sa.Column('user_id', sa.Uuid, sa.ForeignKey('users.id'), nullable=False, index=True),
         sa.Column('name', sa.String(100), nullable=False),
         sa.Column('type', sa.Enum('REVENUE', 'EXPENSE', name='categorytype'), nullable=False),
         sa.Column('color', sa.String(7), nullable=True),
@@ -61,9 +61,9 @@ def upgrade() -> None:
     # Create rental_revenues table
     op.create_table(
         'rental_revenues',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id'), nullable=False, index=True),
-        sa.Column('property_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('properties.id'), nullable=False, index=True),
+        sa.Column('id', sa.Uuid, primary_key=True),
+        sa.Column('user_id', sa.Uuid, sa.ForeignKey('users.id'), nullable=False, index=True),
+        sa.Column('property_id', sa.Uuid, sa.ForeignKey('properties.id'), nullable=False, index=True),
         sa.Column('year_month', sa.String(7), nullable=False, index=True),
         sa.Column('date', sa.Date, nullable=False),
         sa.Column('checkin_date', sa.Date, nullable=True),
@@ -88,10 +88,10 @@ def upgrade() -> None:
     # Create property_expenses table
     op.create_table(
         'property_expenses',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id'), nullable=False, index=True),
-        sa.Column('property_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('properties.id'), nullable=False, index=True),
-        sa.Column('category_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('financial_categories.id'), nullable=False, index=True),
+        sa.Column('id', sa.Uuid, primary_key=True),
+        sa.Column('user_id', sa.Uuid, sa.ForeignKey('users.id'), nullable=False, index=True),
+        sa.Column('property_id', sa.Uuid, sa.ForeignKey('properties.id'), nullable=False, index=True),
+        sa.Column('category_id', sa.Uuid, sa.ForeignKey('financial_categories.id'), nullable=False, index=True),
         sa.Column('year_month', sa.String(7), nullable=False, index=True),
         sa.Column('name', sa.String(255), nullable=False),
         sa.Column('amount', sa.Numeric(15, 2), nullable=False),
@@ -109,9 +109,9 @@ def upgrade() -> None:
     # Create monthly_closings table
     op.create_table(
         'monthly_closings',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id'), nullable=False, index=True),
-        sa.Column('property_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('properties.id'), nullable=False),
+        sa.Column('id', sa.Uuid, primary_key=True),
+        sa.Column('user_id', sa.Uuid, sa.ForeignKey('users.id'), nullable=False, index=True),
+        sa.Column('property_id', sa.Uuid, sa.ForeignKey('properties.id'), nullable=False),
         sa.Column('year_month', sa.String(7), nullable=False),
         sa.Column('total_revenue', sa.Numeric(15, 2), nullable=False, default=0),
         sa.Column('total_expenses', sa.Numeric(15, 2), nullable=False, default=0),
@@ -133,13 +133,13 @@ def upgrade() -> None:
     # Create audit_logs table
     op.create_table(
         'audit_logs',
-        sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), sa.ForeignKey('users.id'), nullable=True, index=True),
+        sa.Column('id', sa.Uuid, primary_key=True),
+        sa.Column('user_id', sa.Uuid, sa.ForeignKey('users.id'), nullable=True, index=True),
         sa.Column('action', sa.String(50), nullable=False),
         sa.Column('entity_type', sa.String(100), nullable=False),
-        sa.Column('entity_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('old_values', postgresql.JSONB, nullable=True),
-        sa.Column('new_values', postgresql.JSONB, nullable=True),
+        sa.Column('entity_id', sa.Uuid, nullable=False),
+        sa.Column('old_values', sa.JSON, nullable=True),
+        sa.Column('new_values', sa.JSON, nullable=True),
         sa.Column('ip_address', sa.String(45), nullable=True),
         sa.Column('user_agent', sa.Text, nullable=True),
         sa.Column('created_at', sa.DateTime, server_default=sa.func.now()),

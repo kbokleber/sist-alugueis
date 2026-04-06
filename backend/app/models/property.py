@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime, DECIMAL, Text
+from sqlalchemy import String, Boolean, DateTime, DECIMAL, Text, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Uuid
 from app.database import Base
 
 
@@ -10,12 +10,13 @@ class Property(Base):
     __tablename__ = "properties"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid,
         primary_key=True,
         default=uuid.uuid4,
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid,
+        ForeignKey("users.id"),
         nullable=False,
         index=True,
     )

@@ -41,6 +41,13 @@ class Settings(BaseSettings):
         return self.database_url.replace("+aiosqlite", "").replace("+asyncpg", "")
 
     @property
+    def database_url_async(self) -> str:
+        """Async database URL for Alembic with async driver."""
+        if "sqlite" in self.database_url and "+aiosqlite" not in self.database_url:
+            return self.database_url.replace("sqlite://", "sqlite+aiosqlite://")
+        return self.database_url
+
+    @property
     def cors_origins(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
 

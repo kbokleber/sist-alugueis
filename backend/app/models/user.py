@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import String, Boolean, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Uuid
 from app.database import Base
 
 
@@ -10,7 +10,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid,
         primary_key=True,
         default=uuid.uuid4,
     )

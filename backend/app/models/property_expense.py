@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime, date
-from sqlalchemy import String, Boolean, DateTime, Date, DECIMAL, Text, Enum, Index
+from sqlalchemy import String, Boolean, DateTime, Date, DECIMAL, Text, Enum, Index, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Uuid
 import enum
 from app.database import Base
 
@@ -17,22 +17,25 @@ class PropertyExpense(Base):
     __tablename__ = "property_expenses"
 
     id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid,
         primary_key=True,
         default=uuid.uuid4,
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid,
+        ForeignKey("users.id"),
         nullable=False,
         index=True,
     )
     property_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid,
+        ForeignKey("properties.id"),
         nullable=False,
         index=True,
     )
     category_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
+        Uuid,
+        ForeignKey("financial_categories.id"),
         nullable=False,
         index=True,
     )

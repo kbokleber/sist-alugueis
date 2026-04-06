@@ -24,10 +24,10 @@ class ClosingResponse(ClosingBase):
     platform_fee_total: float
     other_expenses: float
     status: ClosingStatus
-    closed_at: datetime | None = None
+    closed_at: Optional[datetime] = None
     notes: str | None = None
     created_at: datetime
-    updated_at: datetime | None = None
+    updated_at: Optional[datetime] = None
 
 
 class ClosingGenerateRequest(BaseModel):

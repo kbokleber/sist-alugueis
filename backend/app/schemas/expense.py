@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, date
+from typing import Optional
 from pydantic import BaseModel, ConfigDict
 from app.models.property_expense import ExpenseStatus
 
@@ -11,10 +12,10 @@ class ExpenseBase(BaseModel):
     name: str
     amount: float
     is_reserve: bool = False
-    due_date: date | None = None
-    paid_date: date | None = None
+    due_date: Optional[date] = None
+    paid_date: Optional[date] = None
     status: ExpenseStatus = ExpenseStatus.PENDING
-    notes: str | None = None
+    notes: Optional[str] = None
 
 
 class ExpenseCreate(ExpenseBase):
@@ -24,14 +25,14 @@ class ExpenseCreate(ExpenseBase):
 class ExpenseUpdate(BaseModel):
     property_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
-    year_month: str | None = None
-    name: str | None = None
+    year_month: Optional[str] = None
+    name: Optional[str] = None
     amount: float | None = None
     is_reserve: bool | None = None
-    due_date: date | None = None
-    paid_date: date | None = None
+    due_date: Optional[date] = None
+    paid_date: Optional[date] = None
     status: ExpenseStatus | None = None
-    notes: str | None = None
+    notes: Optional[str] = None
 
 
 class ExpensePayPatch(BaseModel):
@@ -45,12 +46,12 @@ class ExpenseResponse(ExpenseBase):
     id: uuid.UUID
     user_id: uuid.UUID
     created_at: datetime
-    updated_at: datetime | None = None
+    updated_at: Optional[datetime] = None
 
 
 class ExpenseByCategory(BaseModel):
     category_id: uuid.UUID
     category_name: str
-    category_color: str | None
+    category_color: Optional[str]
     total: float
     count: int

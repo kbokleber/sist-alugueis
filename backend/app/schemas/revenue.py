@@ -30,9 +30,9 @@ class RevenueCreate(RevenueBase):
 class RevenueUpdate(BaseModel):
     property_id: uuid.UUID | None = None
     year_month: str | None = None
-    date: date | None = None
-    checkin_date: date | None = None
-    checkout_date: date | None = None
+    date: Optional[date] = None
+    checkin_date: Optional[date] = None
+    checkout_date: Optional[date] = None
     guest_name: str | None = None
     listing_name: str | None = None
     listing_source: str | None = None
