@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 from app.models.monthly_closing import ClosingStatus
@@ -25,7 +26,7 @@ class ClosingResponse(ClosingBase):
     other_expenses: float
     status: ClosingStatus
     closed_at: Optional[datetime] = None
-    notes: str | None = None
+    notes: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
+from typing import Optional
 
 
 class LoginRequest(BaseModel):
@@ -36,4 +37,4 @@ class TokenPayload(BaseModel):
 
 
 class TokenData(BaseModel):
-    user_id: str | None = None
+    user_id: Optional[str] = None

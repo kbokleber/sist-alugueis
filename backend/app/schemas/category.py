@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 from app.models.financial_category import CategoryType
@@ -7,8 +8,8 @@ from app.models.financial_category import CategoryType
 class CategoryBase(BaseModel):
     name: str
     type: CategoryType
-    color: str | None = None
-    icon: str | None = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
 
 
 class CategoryCreate(CategoryBase):
@@ -16,10 +17,10 @@ class CategoryCreate(CategoryBase):
 
 
 class CategoryUpdate(BaseModel):
-    name: str | None = None
-    type: CategoryType | None = None
-    color: str | None = None
-    icon: str | None = None
+    name: Optional[str] = None
+    type: Optional[CategoryType] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
 
 
 class CategoryResponse(CategoryBase):

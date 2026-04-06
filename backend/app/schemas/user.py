@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
@@ -13,7 +14,7 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    full_name: str | None = None
+    full_name: Optional[str] = None
     is_active: bool | None = None
 
 
