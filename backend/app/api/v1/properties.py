@@ -24,7 +24,8 @@ async def list_properties(
     current_user: User = Depends(get_current_user),
 ):
     service = PropertyService(db)
-    properties = await service.get_all_for_user(current_user.id)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    properties = await service.get_all_for_user(scope_user_id)
     return ResponseWrapper(data=properties)
 
 
@@ -37,6 +38,7 @@ async def create_property(
     service = PropertyService(db)
     prop = await service.create(
         user_id=current_user.id,
+        code=data.code,
         name=data.name,
         address=data.address,
         property_value=data.property_value,
@@ -63,7 +65,8 @@ async def get_property(
     current_user: User = Depends(get_current_user),
 ):
     service = PropertyService(db)
-    prop = await service.get_by_id(property_id, current_user.id)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    prop = await service.get_by_id(property_id, scope_user_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     return ResponseWrapper(data=prop)
@@ -77,12 +80,14 @@ async def update_property(
     current_user: User = Depends(get_current_user),
 ):
     service = PropertyService(db)
-    prop = await service.get_by_id(property_id, current_user.id)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    prop = await service.get_by_id(property_id, scope_user_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
     # Capture old values before update
     old_values = {
+        "code": prop.code,
         "name": prop.name,
         "address": prop.address,
         "property_value": float(prop.property_value),
@@ -113,12 +118,14 @@ async def delete_property(
     current_user: User = Depends(get_current_user),
 ):
     service = PropertyService(db)
-    prop = await service.get_by_id(property_id, current_user.id)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    prop = await service.get_by_id(property_id, scope_user_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
     # Capture old values before delete
     old_values = {
+        "code": prop.code,
         "name": prop.name,
         "address": prop.address,
         "property_value": float(prop.property_value),
@@ -148,7 +155,8 @@ async def get_property_summary(
     current_user: User = Depends(get_current_user),
 ):
     service = PropertyService(db)
-    prop = await service.get_by_id(property_id, current_user.id)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    prop = await service.get_by_id(property_id, scope_user_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 

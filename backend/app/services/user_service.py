@@ -23,10 +23,15 @@ class UserService:
         return list(result.scalars().all())
 
     async def create(self, data: UserCreate) -> User:
+        existing_user = await self.get_by_email(data.email)
+        if existing_user:
+            raise ValueError("Email already registered")
+
         user = User(
             email=data.email,
             hashed_password=hash_password(data.password),
             full_name=data.full_name,
+            is_superuser=data.is_superuser,
         )
         self.db.add(user)
         await self.db.commit()
@@ -40,6 +45,23 @@ class UserService:
         await self.db.commit()
         await self.db.refresh(user)
         return user
+
+    async def delete(self, user: User) -> None:
+        has_related_data = any(
+            (
+                user.properties,
+                user.categories,
+                user.revenues,
+                user.expenses,
+                user.closings,
+                user.audit_logs,
+            )
+        )
+        if has_related_data:
+            raise ValueError("User has related data and cannot be deleted")
+
+        await self.db.delete(user)
+        await self.db.commit()
 
     async def change_password(self, user: User, data: UserPasswordChange) -> bool:
         if not verify_password(data.current_password, user.hashed_password):

@@ -20,6 +20,7 @@ class Property(Base):
         nullable=False,
         index=True,
     )
+    code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     property_value: Mapped[float] = mapped_column(DECIMAL(15, 2), nullable=False)
@@ -36,4 +37,3 @@ class Property(Base):
     owner = relationship("User", back_populates="properties")
     revenues = relationship("RentalRevenue", back_populates="property", lazy="selectin")
     expenses = relationship("PropertyExpense", back_populates="property", lazy="selectin")
-    closings = relationship("MonthlyClosing", back_populates="property", lazy="selectin")

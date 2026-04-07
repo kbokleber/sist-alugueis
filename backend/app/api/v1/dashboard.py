@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
@@ -19,14 +20,30 @@ from app.models import User
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
+def get_month_range_from_count(months: int) -> tuple[str, str]:
+    today = date.today()
+    end_year = today.year
+    end_month = today.month
+    start_year = end_year
+    start_month = end_month - (months - 1)
+
+    while start_month <= 0:
+        start_month += 12
+        start_year -= 1
+
+    return f"{start_year}-{start_month:02d}", f"{end_year}-{end_month:02d}"
+
+
 @router.get("/overview", response_model=ResponseWrapper[DashboardOverview])
 async def get_overview(
-    year_month: str | None = Query(None),
+    start_month: str | None = Query(None),
+    end_month: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = DashboardService(db)
-    overview = await service.get_overview(current_user.id, year_month)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    overview = await service.get_overview(scope_user_id, start_month, end_month)
     return ResponseWrapper(data=overview)
 
 
@@ -39,12 +56,13 @@ async def get_property_dashboard(
 ):
     # Verify property belongs to user
     prop_service = PropertyService(db)
-    prop = await prop_service.get_by_id(property_id, current_user.id)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    prop = await prop_service.get_by_id(property_id, scope_user_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
     service = DashboardService(db)
-    data = await service.get_property_dashboard(current_user.id, property_id, year_month)
+    data = await service.get_property_dashboard(scope_user_id, property_id, year_month)
     if not data:
         raise HTTPException(status_code=404, detail="No data found for this period")
     return ResponseWrapper(data=data)
@@ -58,36 +76,42 @@ async def get_property_monthly(
     current_user: User = Depends(get_current_user),
 ):
     prop_service = PropertyService(db)
-    prop = await prop_service.get_by_id(property_id, current_user.id)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    prop = await prop_service.get_by_id(property_id, scope_user_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
     service = DashboardService(db)
-    data = await service.get_bar_chart_data(current_user.id, property_id, months)
+    start_month, end_month = get_month_range_from_count(months)
+    data = await service.get_bar_chart_data(scope_user_id, property_id, start_month, end_month)
     return ResponseWrapper(data=data)
 
 
 @router.get("/chart/bar", response_model=ResponseWrapper[ChartBarData])
 async def get_bar_chart(
     property_id: uuid.UUID | None = Query(None),
-    months: int = Query(12, ge=1, le=24),
+    start_month: str | None = Query(None),
+    end_month: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = DashboardService(db)
-    data = await service.get_bar_chart_data(current_user.id, property_id, months)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    data = await service.get_bar_chart_data(scope_user_id, property_id, start_month, end_month)
     return ResponseWrapper(data=data)
 
 
 @router.get("/chart/pie", response_model=ResponseWrapper[ChartPieData])
 async def get_pie_chart(
-    property_id: uuid.UUID = Query(...),
-    year_month: str = Query(...),
+    property_id: uuid.UUID | None = Query(None),
+    start_month: str | None = Query(None),
+    end_month: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = DashboardService(db)
-    data = await service.get_pie_chart_data(current_user.id, property_id, year_month)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    data = await service.get_pie_chart_data(scope_user_id, property_id, start_month, end_month)
     return ResponseWrapper(data=data)
 
 
@@ -99,7 +123,9 @@ async def get_timeline(
     current_user: User = Depends(get_current_user),
 ):
     service = DashboardService(db)
-    data = await service.get_bar_chart_data(current_user.id, property_id, months)
+    start_month, end_month = get_month_range_from_count(months)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    data = await service.get_bar_chart_data(scope_user_id, property_id, start_month, end_month)
     return ResponseWrapper(data=data)
 
 

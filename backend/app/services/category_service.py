@@ -8,17 +8,17 @@ class CategoryService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_by_id(self, category_id: uuid.UUID, user_id: uuid.UUID) -> FinancialCategory | None:
-        result = await self.db.execute(
-            select(FinancialCategory).where(
-                FinancialCategory.id == category_id,
-                FinancialCategory.user_id == user_id,
-            )
-        )
+    async def get_by_id(self, category_id: uuid.UUID, user_id: uuid.UUID | None = None) -> FinancialCategory | None:
+        query = select(FinancialCategory).where(FinancialCategory.id == category_id)
+        if user_id is not None:
+            query = query.where(FinancialCategory.user_id == user_id)
+        result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_all(self, user_id: uuid.UUID, type: CategoryType | None = None) -> list[FinancialCategory]:
-        query = select(FinancialCategory).where(FinancialCategory.user_id == user_id)
+    async def get_all(self, user_id: uuid.UUID | None = None, type: CategoryType | None = None) -> list[FinancialCategory]:
+        query = select(FinancialCategory)
+        if user_id is not None:
+            query = query.where(FinancialCategory.user_id == user_id)
         if type:
             query = query.where(FinancialCategory.type == type)
         query = query.order_by(FinancialCategory.name)

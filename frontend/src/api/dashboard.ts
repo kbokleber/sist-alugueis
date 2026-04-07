@@ -1,7 +1,8 @@
 import apiClient from './client'
 
 export interface DashboardOverview {
-  year_month: string
+  start_month: string
+  end_month: string
   total_properties: number
   total_revenue: number
   total_expenses: number
@@ -36,9 +37,9 @@ export interface PropertyDashboard {
 }
 
 export const dashboardApi = {
-  overview: async (year_month?: string): Promise<DashboardOverview> => {
+  overview: async (start_month?: string, end_month?: string): Promise<DashboardOverview> => {
     const response = await apiClient.get<{ data: DashboardOverview }>('/dashboard/overview', {
-      params: year_month ? { year_month } : undefined,
+      params: start_month || end_month ? { start_month, end_month } : undefined,
     })
     return response.data.data
   },
@@ -51,22 +52,22 @@ export const dashboardApi = {
     return response.data.data
   },
 
-  chartBar: async (property_id: string, months = 12): Promise<{
+  chartBar: async (property_id?: string, start_month?: string, end_month?: string): Promise<{
     labels: string[]
     datasets: Array<{ label: string; data: (number | null)[] }>
   }> => {
     const response = await apiClient.get('/dashboard/chart/bar', {
-      params: { property_id, months },
+      params: property_id ? { property_id, start_month, end_month } : { start_month, end_month },
     })
     return response.data.data
   },
 
-  chartPie: async (property_id: string, year_month: string): Promise<{
+  chartPie: async (property_id: string | undefined, start_month?: string, end_month?: string): Promise<{
     labels: string[]
     datasets: Array<{ data: number[]; backgroundColor: string[] }>
   }> => {
     const response = await apiClient.get('/dashboard/chart/pie', {
-      params: { property_id, year_month },
+      params: property_id ? { property_id, start_month, end_month } : { start_month, end_month },
     })
     return response.data.data
   },

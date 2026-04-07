@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { propertiesApi } from '@/api/properties'
 import PageContainer from '@/components/layout/PageContainer'
-import { Card, CardContent, CardHeader } from '@/components/ui/Card'
+import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { FormModal } from '@/components/ui/FormModal'
 import { toast } from '@/stores/toastStore'
 import { formatMoney } from '@/lib/utils'
 import { Plus, Pencil, Trash2, Building, Loader2 } from 'lucide-react'
@@ -17,6 +18,7 @@ export default function PropertiesPage() {
   const [editing, setEditing] = useState<Property | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
+  const [code, setCode] = useState('')
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
   const [propertyValue, setPropertyValue] = useState('')
@@ -30,7 +32,7 @@ export default function PropertiesPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; address: string; property_value: number; monthly_depreciation_percent: number }) =>
+    mutationFn: (data: { code?: string; name: string; address: string; property_value: number; monthly_depreciation_percent: number }) =>
       propertiesApi.create(data),
     onSuccess: () => {
       toast.success('Imóvel criado com sucesso!')
@@ -69,6 +71,7 @@ export default function PropertiesPage() {
   })
 
   const resetForm = () => {
+    setCode('')
     setName('')
     setAddress('')
     setPropertyValue('')
@@ -79,6 +82,7 @@ export default function PropertiesPage() {
 
   const handleEdit = (property: Property) => {
     setEditing(property)
+    setCode(property.code || '')
     setName(property.name)
     setAddress(property.address || '')
     setPropertyValue(String(property.property_value))
@@ -89,6 +93,7 @@ export default function PropertiesPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const data = {
+      code: code || undefined,
       name,
       address: address || undefined,
       property_value: Number(propertyValue),
@@ -107,60 +112,64 @@ export default function PropertiesPage() {
     <PageContainer
       title="Imóveis"
       action={
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button onClick={() => setShowForm(true)}>
           <Plus className="h-4 w-4 mr-1" /> Novo Imóvel
         </Button>
       }
     >
-      {showForm && (
-        <Card className="mb-6">
-          <CardHeader>
-            <h2 className="text-base font-medium">{editing ? 'Editar Imóvel' : 'Novo Imóvel'}</h2>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Input
-                label="Nome do Imóvel"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Apartamento Andorinha"
-                required
-              />
-              <Input
-                label="Endereço"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="Endereço completo"
-              />
-              <Input
-                label="Valor do Imóvel (R$)"
-                type="number"
-                value={propertyValue}
-                onChange={(e) => setPropertyValue(e.target.value)}
-                placeholder="500000"
-                required
-              />
-              <Input
-                label="Depreciação (%/mês)"
-                type="number"
-                step="0.1"
-                value={depreciation}
-                onChange={(e) => setDepreciation(e.target.value)}
-                placeholder="0.5"
-              />
-              <div className="sm:col-span-2 lg:col-span-4 flex gap-2">
-                <Button type="submit" disabled={isPending}>
-                  {isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
-                  {isPending ? 'Salvando...' : 'Salvar'}
-                </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancelar
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <FormModal
+        open={showForm}
+        title={editing ? 'Editar imóvel' : 'Novo imóvel'}
+        description="Preencha os dados do imóvel antes de salvar."
+        onClose={resetForm}
+      >
+        <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Input
+            label="Código do Imóvel"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="Ex: IMV-001"
+          />
+          <Input
+            label="Nome do Imóvel"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ex: Apartamento Andorinha"
+            required
+          />
+          <Input
+            label="Endereço"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Endereço completo"
+          />
+          <Input
+            label="Valor do Imóvel (R$)"
+            type="number"
+            value={propertyValue}
+            onChange={(e) => setPropertyValue(e.target.value)}
+            placeholder="500000"
+            required
+          />
+          <Input
+            label="Depreciação (%/mês)"
+            type="number"
+            step="0.1"
+            value={depreciation}
+            onChange={(e) => setDepreciation(e.target.value)}
+            placeholder="0.5"
+          />
+          <div className="sm:col-span-2 lg:col-span-4 flex justify-end gap-2 border-t border-slate-200 pt-4">
+            <Button type="button" variant="outline" onClick={resetForm}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
+              {isPending ? 'Salvando...' : editing ? 'Salvar alterações' : 'Criar imóvel'}
+            </Button>
+          </div>
+        </form>
+      </FormModal>
 
       {isLoading && (
         <div className="flex items-center justify-center py-12 text-slate-500">
@@ -187,6 +196,7 @@ export default function PropertiesPage() {
                 <div className="flex items-start justify-between">
                   <div className="min-w-0 flex-1">
                     <h3 className="font-semibold text-slate-900 truncate">{property.name}</h3>
+                    <p className="text-sm text-slate-500 mt-1 truncate">Código: {property.code || 'Sem código'}</p>
                     <p className="text-sm text-slate-500 mt-1 truncate">{property.address || 'Sem endereço'}</p>
                     <div className="mt-3 space-y-1">
                       <p className="text-sm">

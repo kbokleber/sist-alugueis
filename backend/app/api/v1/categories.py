@@ -24,7 +24,8 @@ async def list_categories(
     current_user: User = Depends(get_current_user),
 ):
     service = CategoryService(db)
-    categories = await service.get_all(current_user.id, type)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    categories = await service.get_all(scope_user_id, type)
     return ResponseWrapper(data=categories)
 
 
@@ -57,7 +58,8 @@ async def get_category(
     current_user: User = Depends(get_current_user),
 ):
     service = CategoryService(db)
-    category = await service.get_by_id(category_id, current_user.id)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    category = await service.get_by_id(category_id, scope_user_id)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
     return ResponseWrapper(data=category)
@@ -71,7 +73,8 @@ async def update_category(
     current_user: User = Depends(get_current_user),
 ):
     service = CategoryService(db)
-    category = await service.get_by_id(category_id, current_user.id)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    category = await service.get_by_id(category_id, scope_user_id)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
@@ -79,7 +82,9 @@ async def update_category(
     old_values = {
         "name": category.name,
         "type": category.type.value if hasattr(category.type, 'value') else str(category.type),
-        "is_active": category.is_active,
+        "color": category.color,
+        "icon": category.icon,
+        "is_system": category.is_system,
     }
 
     updated = await service.update(category, data.model_dump(exclude_unset=True))
@@ -105,7 +110,8 @@ async def delete_category(
     current_user: User = Depends(get_current_user),
 ):
     service = CategoryService(db)
-    category = await service.get_by_id(category_id, current_user.id)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    category = await service.get_by_id(category_id, scope_user_id)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
@@ -113,7 +119,9 @@ async def delete_category(
     old_values = {
         "name": category.name,
         "type": category.type.value if hasattr(category.type, 'value') else str(category.type),
-        "is_active": category.is_active,
+        "color": category.color,
+        "icon": category.icon,
+        "is_system": category.is_system,
     }
 
     try:

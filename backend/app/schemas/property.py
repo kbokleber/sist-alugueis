@@ -6,6 +6,7 @@ from decimal import Decimal
 
 
 class PropertyBase(BaseModel):
+    code: str | None = None
     name: str
     address: str | None = None
     property_value: float
@@ -17,6 +18,7 @@ class PropertyCreate(PropertyBase):
 
 
 class PropertyUpdate(BaseModel):
+    code: str | None = None
     name: str | None = None
     address: str | None = None
     property_value: float | None = None

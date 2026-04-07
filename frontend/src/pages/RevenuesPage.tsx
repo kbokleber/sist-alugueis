@@ -1,19 +1,39 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { revenuesApi } from '@/api/revenues'
 import { propertiesApi } from '@/api/properties'
 import PageContainer from '@/components/layout/PageContainer'
-import { Card, CardContent, CardHeader } from '@/components/ui/Card'
+import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { FormModal } from '@/components/ui/FormModal'
 import { toast } from '@/stores/toastStore'
-import { formatMoney } from '@/lib/utils'
-import { Plus, Pencil, Trash2, TrendingUp, Loader2 } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
+import { currentYearMonth, formatDate, formatMoney } from '@/lib/utils'
+import { Plus, Pencil, Trash2, TrendingUp, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Revenue } from '@/types/revenue.types'
 
+const calculateNetAmount = (grossAmount: number, cleaningFee: number, platformFee: number) =>
+  grossAmount - cleaningFee - platformFee
+
+const calculateCompetenceMonth = (checkinDate: string, fallbackDate: string) => {
+  const reference = checkinDate || fallbackDate
+  if (!reference) return ''
+  const [yearPart, monthPart] = reference.split('-')
+  const baseYear = Number(yearPart)
+  const baseMonth = Number(monthPart)
+  if (!baseYear || !baseMonth) return ''
+  const monthIndex = baseMonth + 1
+  const year = monthIndex === 13 ? baseYear + 1 : baseYear
+  const month = String(monthIndex === 13 ? 1 : monthIndex).padStart(2, '0')
+  return `${year}-${month}`
+}
+
+const formatCompetenceYearMonth = (yearMonth: string) => yearMonth.replace('-', '/')
+
 export default function RevenuesPage() {
+  const currentMonth = currentYearMonth()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Revenue | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
@@ -21,25 +41,55 @@ export default function RevenuesPage() {
   const [propertyId, setPropertyId] = useState('')
   const [guestName, setGuestName] = useState('')
   const [date, setDate] = useState('')
+  const [checkinDate, setCheckinDate] = useState('')
+  const [checkoutDate, setCheckoutDate] = useState('')
   const [nights, setNights] = useState('')
   const [grossAmount, setGrossAmount] = useState('')
   const [cleaningFee, setCleaningFee] = useState('0')
   const [platformFee, setPlatformFee] = useState('0')
   const [netAmount, setNetAmount] = useState('')
+  const [isNetAmountManual, setIsNetAmountManual] = useState(false)
   const [yearMonth, setYearMonth] = useState('')
+  const [listingName, setListingName] = useState('')
   const [listingSource, setListingSource] = useState('')
+  const [externalId, setExternalId] = useState('')
+  const [notes, setNotes] = useState('')
+  const [filterPropertyId, setFilterPropertyId] = useState('all')
+  const [filterStartMonth, setFilterStartMonth] = useState(currentMonth)
+  const [filterEndMonth, setFilterEndMonth] = useState(currentMonth)
+  const [filterExternalId, setFilterExternalId] = useState('')
+  const [page, setPage] = useState(1)
+  const perPage = 20
 
   const queryClient = useQueryClient()
+  const userId = useAuthStore((state) => state.user?.id)
+  const hasInvalidRange =
+    Boolean(filterStartMonth) && Boolean(filterEndMonth) && filterStartMonth > filterEndMonth
 
-  const { data: revenues = [], isLoading } = useQuery({
-    queryKey: ['revenues'],
-    queryFn: () => revenuesApi.list(),
+  const { data, isLoading: isRevenuesLoading } = useQuery({
+    queryKey: ['revenues', userId, filterPropertyId, filterStartMonth, filterEndMonth, filterExternalId, page],
+    queryFn: () =>
+      revenuesApi.list({
+        property_id: filterPropertyId !== 'all' ? filterPropertyId : undefined,
+        start_month: filterStartMonth || undefined,
+        end_month: filterEndMonth || undefined,
+        external_id: filterExternalId.trim() || undefined,
+        page,
+        per_page: perPage,
+      }),
+    enabled: !hasInvalidRange,
+    refetchOnMount: 'always',
   })
 
-  const { data: properties = [] } = useQuery({
-    queryKey: ['properties'],
+  const revenues = data?.data || []
+  const meta = data?.meta || { total: 0, page: 1, per_page: perPage, total_pages: 1 }
+
+  const { data: properties = [], isLoading: isPropertiesLoading } = useQuery({
+    queryKey: ['properties', userId],
     queryFn: propertiesApi.list,
+    refetchOnMount: 'always',
   })
+  const isLoading = isRevenuesLoading || isPropertiesLoading
 
   const createMutation = useMutation({
     mutationFn: revenuesApi.create,
@@ -83,13 +133,19 @@ export default function RevenuesPage() {
     setPropertyId('')
     setGuestName('')
     setDate('')
+    setCheckinDate('')
+    setCheckoutDate('')
     setNights('')
     setGrossAmount('')
     setCleaningFee('0')
     setPlatformFee('0')
     setNetAmount('')
+    setIsNetAmountManual(false)
     setYearMonth('')
+    setListingName('')
     setListingSource('')
+    setExternalId('')
+    setNotes('')
     setShowForm(false)
     setEditing(null)
   }
@@ -99,29 +155,42 @@ export default function RevenuesPage() {
     setPropertyId(rev.property_id)
     setGuestName(rev.guest_name)
     setDate(rev.date)
+    setCheckinDate(rev.checkin_date || '')
+    setCheckoutDate(rev.checkout_date || '')
     setNights(String(rev.nights))
     setGrossAmount(String(rev.gross_amount))
     setCleaningFee(String(rev.cleaning_fee))
     setPlatformFee(String(rev.platform_fee))
     setNetAmount(String(rev.net_amount))
+    setIsNetAmountManual(rev.net_amount !== calculateNetAmount(rev.gross_amount, rev.cleaning_fee, rev.platform_fee))
     setYearMonth(rev.year_month)
+    setListingName(rev.listing_name || '')
     setListingSource(rev.listing_source || '')
+    setExternalId(rev.external_id || '')
+    setNotes(rev.notes || '')
     setShowForm(true)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    const computedYearMonth = calculateCompetenceMonth(checkinDate, date)
+
     const data = {
       property_id: propertyId,
       guest_name: guestName,
       date,
+      checkin_date: checkinDate || undefined,
+      checkout_date: checkoutDate || undefined,
       nights: Number(nights),
       gross_amount: Number(grossAmount),
       cleaning_fee: Number(cleaningFee),
       platform_fee: Number(platformFee),
-      net_amount: Number(netAmount),
-      year_month: yearMonth,
+      net_amount: Number(netAmount || 0),
+      year_month: editing ? yearMonth : computedYearMonth,
+      listing_name: listingName || undefined,
       listing_source: listingSource || undefined,
+      external_id: externalId || undefined,
+      notes: notes || undefined,
     }
     if (editing) {
       updateMutation.mutate({ id: editing.id, data })
@@ -132,7 +201,27 @@ export default function RevenuesPage() {
 
   const isPending = createMutation.isPending || updateMutation.isPending
   const totalGross = revenues.reduce((sum, r) => sum + r.gross_amount, 0)
-  const totalNet = revenues.reduce((sum, r) => sum + r.net_amount, 0)
+  const totalNet = revenues.reduce(
+    (sum, r) => sum + calculateNetAmount(r.gross_amount, r.cleaning_fee, r.platform_fee),
+    0
+  )
+
+  useEffect(() => {
+    if (isNetAmountManual) return
+
+    const computedNetAmount = calculateNetAmount(
+      Number(grossAmount || 0),
+      Number(cleaningFee || 0),
+      Number(platformFee || 0)
+    )
+    setNetAmount(String(computedNetAmount))
+  }, [grossAmount, cleaningFee, platformFee, isNetAmountManual])
+
+  useEffect(() => {
+    if (!editing) {
+      setYearMonth(calculateCompetenceMonth(checkinDate, date))
+    }
+  }, [checkinDate, date, editing])
 
   return (
     <PageContainer
@@ -143,6 +232,80 @@ export default function RevenuesPage() {
         </Button>
       }
     >
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="grid gap-3 md:grid-cols-5">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600">Competência inicial</label>
+              <Input
+                type="month"
+                value={filterStartMonth}
+                onChange={(e) => {
+                  setFilterStartMonth(e.target.value)
+                  setPage(1)
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600">Competência final</label>
+              <Input
+                type="month"
+                value={filterEndMonth}
+                onChange={(e) => {
+                  setFilterEndMonth(e.target.value)
+                  setPage(1)
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600">Imóvel</label>
+              <select
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                value={filterPropertyId}
+                onChange={(e) => {
+                  setFilterPropertyId(e.target.value)
+                  setPage(1)
+                }}
+              >
+                <option value="all">Todos os imóveis</option>
+                {properties.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600">Reserva</label>
+              <Input
+                placeholder="Ex.: EX19J"
+                value={filterExternalId}
+                onChange={(e) => {
+                  setFilterExternalId(e.target.value)
+                  setPage(1)
+                }}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setFilterPropertyId('all')
+                  setFilterStartMonth('')
+                  setFilterEndMonth('')
+                  setFilterExternalId('')
+                  setPage(1)
+                }}
+              >
+                Limpar filtros
+              </Button>
+            </div>
+          </div>
+          {hasInvalidRange && (
+            <p className="mt-3 text-sm text-red-600">A competência inicial deve ser menor ou igual a final.</p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Summary */}
       <div className="grid gap-4 sm:grid-cols-3 mb-6">
         <Card>
@@ -160,49 +323,80 @@ export default function RevenuesPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-slate-500">Registros</p>
-            <p className="text-xl font-semibold text-slate-900">{revenues.length}</p>
+            <p className="text-xl font-semibold text-slate-900">{meta.total}</p>
           </CardContent>
         </Card>
       </div>
 
-      {showForm && (
-        <Card className="mb-6">
-          <CardHeader>
-            <h2 className="text-base font-medium">{editing ? 'Editar Receita' : 'Nova Receita'}</h2>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <select
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                value={propertyId}
-                onChange={(e) => setPropertyId(e.target.value)}
-                required
-              >
-                <option value="">Selecione o imóvel</option>
-                {properties.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              <Input placeholder="Nome do hóspede" value={guestName} onChange={(e) => setGuestName(e.target.value)} required />
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-              <Input placeholder="Noites" type="number" value={nights} onChange={(e) => setNights(e.target.value)} required />
-              <Input placeholder="Valor bruto (R$)" type="number" value={grossAmount} onChange={(e) => setGrossAmount(e.target.value)} required />
-              <Input placeholder="Taxa de limpeza (R$)" type="number" value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)} />
-              <Input placeholder="Taxa plataforma (R$)" type="number" value={platformFee} onChange={(e) => setPlatformFee(e.target.value)} />
-              <Input placeholder="Valor líquido (R$)" type="number" value={netAmount} onChange={(e) => setNetAmount(e.target.value)} required />
-              <Input placeholder="Ano-mês (ex: 2026-04)" value={yearMonth} onChange={(e) => setYearMonth(e.target.value)} required />
-              <Input placeholder="Origem (AIRBNB, DIRECT...)" value={listingSource} onChange={(e) => setListingSource(e.target.value)} />
-              <div className="lg:col-span-3 flex gap-2">
-                <Button type="submit" disabled={isPending}>
-                  {isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
-                  {isPending ? 'Salvando...' : 'Salvar'}
-                </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>Cancelar</Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <FormModal
+        open={showForm}
+        title={editing ? 'Editar receita' : 'Nova receita'}
+        description="Preencha os campos abaixo para salvar a receita."
+        onClose={resetForm}
+      >
+        <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-slate-700">Imóvel</span>
+            <select
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              value={propertyId}
+              onChange={(e) => setPropertyId(e.target.value)}
+              required
+            >
+              <option value="">Selecione o imóvel</option>
+              {properties.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </label>
+          <Input label="Hóspede" placeholder="Nome do hóspede" value={guestName} onChange={(e) => setGuestName(e.target.value)} required />
+          <Input label="Código da reserva" placeholder="Ex.: HY55J" value={externalId} onChange={(e) => setExternalId(e.target.value)} />
+          <Input label="Data da receita" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+          <Input label="Entrada do hóspede" type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)} />
+          <Input label="Saída do hóspede" type="date" value={checkoutDate} onChange={(e) => setCheckoutDate(e.target.value)} />
+          <Input label="Noites" placeholder="Quantidade de noites" type="number" value={nights} onChange={(e) => setNights(e.target.value)} required />
+          <Input label="Valor bruto (R$)" placeholder="0,00" type="number" value={grossAmount} onChange={(e) => setGrossAmount(e.target.value)} required />
+          <Input label="Taxa de limpeza (R$)" placeholder="0,00" type="number" value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)} />
+          <Input label="Taxa da plataforma (R$)" placeholder="0,00" type="number" value={platformFee} onChange={(e) => setPlatformFee(e.target.value)} />
+          <Input
+            label="Valor líquido (R$)"
+            placeholder="0,00"
+            type="number"
+            value={netAmount}
+            onChange={(e) => {
+              setNetAmount(e.target.value)
+              setIsNetAmountManual(true)
+            }}
+            required
+          />
+          <Input
+            label="Competência"
+            placeholder="2026-04"
+            value={yearMonth}
+            onChange={(e) => setYearMonth(e.target.value)}
+            readOnly={!editing}
+            required
+          />
+          <Input label="Nome do anúncio" placeholder="Ex.: Apartamento vista mar" value={listingName} onChange={(e) => setListingName(e.target.value)} />
+          <Input label="Origem da reserva" placeholder="AIRBNB, DIRECT..." value={listingSource} onChange={(e) => setListingSource(e.target.value)} />
+          <label className="flex flex-col gap-1 md:col-span-2 xl:col-span-3">
+            <span className="text-sm font-medium text-slate-700">Observações</span>
+            <textarea
+              className="min-h-24 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              placeholder="Observações adicionais da receita"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </label>
+          <div className="md:col-span-2 xl:col-span-3 flex justify-end gap-2 border-t border-slate-200 pt-4">
+            <Button type="button" variant="outline" onClick={resetForm}>Cancelar</Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              {isPending ? 'Salvando...' : editing ? 'Salvar alterações' : 'Criar receita'}
+            </Button>
+          </div>
+        </form>
+      </FormModal>
 
       {isLoading && (
         <div className="flex items-center justify-center py-12 text-slate-500">
@@ -228,12 +422,14 @@ export default function RevenuesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-slate-500">
-                    <th className="px-4 py-3 font-medium">Hóspede</th>
+                    <th className="px-4 py-3 font-medium">Cód. Reserva</th>
                     <th className="px-4 py-3 font-medium">Imóvel</th>
-                    <th className="px-4 py-3 font-medium">Data</th>
+                    <th className="px-4 py-3 font-medium">Entrada</th>
+                    <th className="px-4 py-3 font-medium">Competência</th>
                     <th className="px-4 py-3 font-medium text-right">Noites</th>
                     <th className="px-4 py-3 font-medium text-right">Valor Bruto</th>
-                    <th className="px-4 py-3 font-medium text-right">Taxas</th>
+                    <th className="px-4 py-3 font-medium text-right">Taxa de Limpeza</th>
+                    <th className="px-4 py-3 font-medium text-right">Taxa da Plataforma</th>
                     <th className="px-4 py-3 font-medium text-right">Valor Líquido</th>
                     <th className="px-4 py-3"></th>
                   </tr>
@@ -241,15 +437,19 @@ export default function RevenuesPage() {
                 <tbody className="divide-y divide-slate-100">
                   {revenues.map((rev) => (
                     <tr key={rev.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-slate-900">{rev.guest_name}</td>
+                      <td className="px-4 py-3 text-slate-600">{rev.external_id || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{rev.property_name || '—'}</td>
-                      <td className="px-4 py-3 text-slate-600">{rev.date}</td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {rev.checkin_date ? formatDate(rev.checkin_date) : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{formatCompetenceYearMonth(rev.year_month)}</td>
                       <td className="px-4 py-3 text-right">{rev.nights}</td>
                       <td className="px-4 py-3 text-right text-green-600">{formatMoney(rev.gross_amount)}</td>
-                      <td className="px-4 py-3 text-right text-red-500">
-                        {formatMoney(rev.cleaning_fee + rev.platform_fee)}
+                      <td className="px-4 py-3 text-right text-red-500">{formatMoney(rev.cleaning_fee)}</td>
+                      <td className="px-4 py-3 text-right text-red-500">{formatMoney(rev.platform_fee)}</td>
+                      <td className="px-4 py-3 text-right font-medium text-slate-900">
+                        {formatMoney(calculateNetAmount(rev.gross_amount, rev.cleaning_fee, rev.platform_fee))}
                       </td>
-                      <td className="px-4 py-3 text-right font-medium text-slate-900">{formatMoney(rev.net_amount)}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
                           <Button size="sm" variant="outline" onClick={() => handleEdit(rev)}>
@@ -271,6 +471,32 @@ export default function RevenuesPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {meta.total_pages > 1 && (
+        <div className="mt-6 flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+            disabled={page === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Anterior
+          </Button>
+          <span className="px-4 text-sm text-slate-600">
+            Página {page} de {meta.total_pages} ({meta.total} registros)
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((currentPage) => Math.min(meta.total_pages || 1, currentPage + 1))}
+            disabled={page === meta.total_pages}
+          >
+            Próxima
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       )}
 
       <ConfirmDialog

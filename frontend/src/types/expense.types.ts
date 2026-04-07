@@ -2,6 +2,7 @@ export interface Expense {
   id: string
   user_id: string
   property_id: string
+  property_code?: string
   property_name?: string
   category_id: string
   category_name?: string

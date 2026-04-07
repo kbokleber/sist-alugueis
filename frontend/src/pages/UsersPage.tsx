@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersApi } from '@/api/users'
 import PageContainer from '@/components/layout/PageContainer'
-import { Card, CardContent, CardHeader } from '@/components/ui/Card'
+import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { FormModal } from '@/components/ui/FormModal'
 import { toast } from '@/stores/toastStore'
 import { Plus, Pencil, Trash2, Users, Check, X, Loader2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import type { User } from '@/types/auth.types'
 
 export default function UsersPage() {
@@ -111,37 +111,70 @@ export default function UsersPage() {
       title="Usuários"
       subtitle="Gerenciar usuários do sistema"
       action={
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button onClick={() => setShowForm(true)}>
           <Plus className="h-4 w-4 mr-1" />
           Novo Usuário
         </Button>
       }
     >
-      {showForm && (
-        <Card className="mb-6">
-          <CardHeader>
-            <h2 className="text-base font-medium">{editing ? 'Editar Usuário' : 'Novo Usuário'}</h2>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
-              <Input label="Nome Completo" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="João Silva" required />
-              <Input label="E-mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="joao@email.com" disabled={!!editing} required />
-              {!editing && <Input label="Senha" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 8 caracteres" required={!editing} />}
-              <div className="flex items-center gap-2 sm:col-span-2">
-                <input type="checkbox" id="isSuperuser" checked={isSuperuser} onChange={(e) => setIsSuperuser(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-primary-600" />
-                <label htmlFor="isSuperuser" className="text-sm text-slate-700">Administrador</label>
-              </div>
-              <div className="sm:col-span-2 flex gap-2">
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                  {createMutation.isPending || updateMutation.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
-                  Salvar
-                </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>Cancelar</Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <FormModal
+        open={showForm}
+        title={editing ? 'Editar usuário' : 'Novo usuário'}
+        description="Preencha os dados do usuário antes de salvar."
+        onClose={resetForm}
+      >
+        <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
+          <Input
+            label="Nome Completo"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="João Silva"
+            required
+          />
+          <Input
+            label="E-mail"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="joao@email.com"
+            disabled={!!editing}
+            required
+          />
+          {!editing && (
+            <Input
+              label="Senha"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Mínimo 8 caracteres"
+              required={!editing}
+            />
+          )}
+          <div className="flex items-center gap-2 sm:col-span-2">
+            <input
+              type="checkbox"
+              id="isSuperuser"
+              checked={isSuperuser}
+              onChange={(e) => setIsSuperuser(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-primary-600"
+            />
+            <label htmlFor="isSuperuser" className="text-sm text-slate-700">
+              Administrador
+            </label>
+          </div>
+          <div className="sm:col-span-2 flex justify-end gap-2 border-t border-slate-200 pt-4">
+            <Button type="button" variant="outline" onClick={resetForm}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+              {createMutation.isPending || updateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : null}
+              {editing ? 'Salvar alterações' : 'Criar usuário'}
+            </Button>
+          </div>
+        </form>
+      </FormModal>
 
       {isLoading && (
         <div className="flex items-center justify-center py-12 text-slate-500">
@@ -190,3 +223,17 @@ export default function UsersPage() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        title="Excluir Usuário"
+        message="Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        variant="danger"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => deleteConfirm && deleteMutation.mutate(deleteConfirm)}
+        onCancel={() => setDeleteConfirm(null)}
+      />
+    </PageContainer>
+  )
+}

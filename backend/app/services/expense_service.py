@@ -1,6 +1,7 @@
 import uuid
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 from app.models import PropertyExpense, FinancialCategory
 
 
@@ -8,27 +9,41 @@ class ExpenseService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_by_id(self, expense_id: uuid.UUID, user_id: uuid.UUID) -> PropertyExpense | None:
-        result = await self.db.execute(
-            select(PropertyExpense).where(
-                PropertyExpense.id == expense_id,
-                PropertyExpense.user_id == user_id,
+    async def get_by_id(self, expense_id: uuid.UUID, user_id: uuid.UUID | None = None) -> PropertyExpense | None:
+        query = (
+            select(PropertyExpense)
+            .options(
+                selectinload(PropertyExpense.property),
+                selectinload(PropertyExpense.category),
             )
+            .where(PropertyExpense.id == expense_id)
         )
+        if user_id is not None:
+            query = query.where(PropertyExpense.user_id == user_id)
+        result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
     async def get_all(
         self,
-        user_id: uuid.UUID,
+        user_id: uuid.UUID | None,
         property_id: uuid.UUID | None = None,
         category_id: uuid.UUID | None = None,
         year_month: str | None = None,
+        start_month: str | None = None,
+        end_month: str | None = None,
         status: str | None = None,
         skip: int = 0,
         limit: int = 100,
     ) -> tuple[list[PropertyExpense], int]:
-        query = select(PropertyExpense).where(PropertyExpense.user_id == user_id)
-        count_query = select(func.count(PropertyExpense.id)).where(PropertyExpense.user_id == user_id)
+        query = select(PropertyExpense).options(
+            selectinload(PropertyExpense.property),
+            selectinload(PropertyExpense.category),
+        )
+        count_query = select(func.count(PropertyExpense.id))
+
+        if user_id is not None:
+            query = query.where(PropertyExpense.user_id == user_id)
+            count_query = count_query.where(PropertyExpense.user_id == user_id)
 
         if property_id:
             query = query.where(PropertyExpense.property_id == property_id)
@@ -39,6 +54,12 @@ class ExpenseService:
         if year_month:
             query = query.where(PropertyExpense.year_month == year_month)
             count_query = count_query.where(PropertyExpense.year_month == year_month)
+        if start_month:
+            query = query.where(PropertyExpense.year_month >= start_month)
+            count_query = count_query.where(PropertyExpense.year_month >= start_month)
+        if end_month:
+            query = query.where(PropertyExpense.year_month <= end_month)
+            count_query = count_query.where(PropertyExpense.year_month <= end_month)
         if status:
             query = query.where(PropertyExpense.status == status)
             count_query = count_query.where(PropertyExpense.status == status)
@@ -79,7 +100,7 @@ class ExpenseService:
 
     async def get_by_category(
         self,
-        user_id: uuid.UUID,
+        user_id: uuid.UUID | None,
         year_month: str | None = None,
         property_id: uuid.UUID | None = None,
     ) -> list[dict]:
@@ -92,9 +113,11 @@ class ExpenseService:
         ).join(
             PropertyExpense, PropertyExpense.category_id == FinancialCategory.id
         ).where(
-            PropertyExpense.user_id == user_id,
             FinancialCategory.type == "EXPENSE",
         )
+
+        if user_id is not None:
+            query = query.where(PropertyExpense.user_id == user_id)
 
         if year_month:
             query = query.where(PropertyExpense.year_month == year_month)

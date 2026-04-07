@@ -8,27 +8,25 @@ class PropertyService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_by_id(self, property_id: uuid.UUID, user_id: uuid.UUID) -> Property | None:
-        result = await self.db.execute(
-            select(Property).where(
-                Property.id == property_id,
-                Property.user_id == user_id,
-            )
-        )
+    async def get_by_id(self, property_id: uuid.UUID, user_id: uuid.UUID | None = None) -> Property | None:
+        query = select(Property).where(Property.id == property_id)
+        if user_id is not None:
+            query = query.where(Property.user_id == user_id)
+        result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
-    async def get_all_for_user(self, user_id: uuid.UUID) -> list[Property]:
-        result = await self.db.execute(
-            select(Property)
-            .where(Property.user_id == user_id, Property.is_active == True)
-            .order_by(Property.name)
-        )
+    async def get_all_for_user(self, user_id: uuid.UUID | None = None) -> list[Property]:
+        query = select(Property).where(Property.is_active == True)
+        if user_id is not None:
+            query = query.where(Property.user_id == user_id)
+        result = await self.db.execute(query.order_by(Property.name))
         return list(result.scalars().all())
 
-    async def create(self, user_id: uuid.UUID, name: str, address: str | None,
+    async def create(self, user_id: uuid.UUID, code: str | None, name: str, address: str | None,
                      property_value: float, monthly_depreciation_percent: float = 1.00) -> Property:
         prop = Property(
             user_id=user_id,
+            code=code,
             name=name,
             address=address,
             property_value=property_value,

@@ -19,29 +19,63 @@ from app.models import User
 router = APIRouter(prefix="/revenues", tags=["revenues"])
 
 
+def serialize_revenue(revenue) -> RevenueResponse:
+    return RevenueResponse.model_validate(
+        {
+            "id": revenue.id,
+            "user_id": revenue.user_id,
+            "property_id": revenue.property_id,
+            "property_name": revenue.property.name if revenue.property else None,
+            "year_month": revenue.year_month,
+            "date": revenue.date,
+            "checkin_date": revenue.checkin_date,
+            "checkout_date": revenue.checkout_date,
+            "guest_name": revenue.guest_name,
+            "listing_name": revenue.listing_name,
+            "listing_source": revenue.listing_source,
+            "nights": revenue.nights,
+            "gross_amount": float(revenue.gross_amount),
+            "cleaning_fee": float(revenue.cleaning_fee),
+            "platform_fee": float(revenue.platform_fee),
+            "net_amount": float(revenue.net_amount),
+            "external_id": revenue.external_id,
+            "notes": revenue.notes,
+            "created_at": revenue.created_at,
+            "updated_at": revenue.updated_at,
+        }
+    )
+
+
 @router.get("", response_model=ResponseWrapper[list[RevenueResponse]])
 async def list_revenues(
     property_id: uuid.UUID | None = Query(None),
     year_month: str | None = Query(None),
+    start_month: str | None = Query(None),
+    end_month: str | None = Query(None),
     listing_source: str | None = Query(None),
+    external_id: str | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = RevenueService(db)
+    scope_user_id = None if current_user.is_superuser else current_user.id
     skip = (page - 1) * per_page
     revenues, total = await service.get_all(
-        user_id=current_user.id,
+        user_id=scope_user_id,
         property_id=property_id,
         year_month=year_month,
+        start_month=start_month,
+        end_month=end_month,
         listing_source=listing_source,
+        external_id=external_id,
         skip=skip,
         limit=per_page,
     )
     total_pages = (total + per_page - 1) // per_page
     return ResponseWrapper(
-        data=revenues,
+        data=[serialize_revenue(revenue) for revenue in revenues],
         meta={
             "total": total,
             "page": page,
@@ -70,7 +104,7 @@ async def create_revenue(
         new_values=data.model_dump(),
     )
 
-    return ResponseWrapper(data=revenue, message="Revenue created successfully")
+    return ResponseWrapper(data=serialize_revenue(revenue), message="Revenue created successfully")
 
 
 @router.get("/summary", response_model=ResponseWrapper[RevenueSummary])
@@ -81,7 +115,8 @@ async def get_revenue_summary(
     current_user: User = Depends(get_current_user),
 ):
     service = RevenueService(db)
-    summary = await service.get_summary(current_user.id, property_id, year_month)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    summary = await service.get_summary(scope_user_id, property_id, year_month)
     return ResponseWrapper(data=summary)
 
 
@@ -92,10 +127,11 @@ async def get_revenue(
     current_user: User = Depends(get_current_user),
 ):
     service = RevenueService(db)
-    revenue = await service.get_by_id(revenue_id, current_user.id)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    revenue = await service.get_by_id(revenue_id, scope_user_id)
     if not revenue:
         raise HTTPException(status_code=404, detail="Revenue not found")
-    return ResponseWrapper(data=revenue)
+    return ResponseWrapper(data=serialize_revenue(revenue))
 
 
 @router.put("/{revenue_id}", response_model=ResponseWrapper[RevenueResponse])
@@ -106,20 +142,27 @@ async def update_revenue(
     current_user: User = Depends(get_current_user),
 ):
     service = RevenueService(db)
-    revenue = await service.get_by_id(revenue_id, current_user.id)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    revenue = await service.get_by_id(revenue_id, scope_user_id)
     if not revenue:
         raise HTTPException(status_code=404, detail="Revenue not found")
 
     # Capture old values before update
     old_values = {
         "property_id": str(revenue.property_id),
-        "amount": float(revenue.amount),
-        "rental_amount": float(revenue.rental_amount) if revenue.rental_amount else None,
+        "year_month": revenue.year_month,
+        "date": revenue.date.isoformat(),
+        "checkin_date": revenue.checkin_date.isoformat() if revenue.checkin_date else None,
+        "checkout_date": revenue.checkout_date.isoformat() if revenue.checkout_date else None,
         "guest_name": revenue.guest_name,
-        "check_in": revenue.check_in.isoformat() if revenue.check_in else None,
-        "check_out": revenue.check_out.isoformat() if revenue.check_out else None,
+        "listing_name": revenue.listing_name,
         "listing_source": revenue.listing_source,
-        "status": revenue.status.value if hasattr(revenue.status, 'value') else str(revenue.status),
+        "nights": revenue.nights,
+        "gross_amount": float(revenue.gross_amount),
+        "cleaning_fee": float(revenue.cleaning_fee),
+        "platform_fee": float(revenue.platform_fee),
+        "net_amount": float(revenue.net_amount),
+        "external_id": revenue.external_id,
         "notes": revenue.notes,
     }
 
@@ -136,7 +179,7 @@ async def update_revenue(
         new_values=data.model_dump(exclude_unset=True),
     )
 
-    return ResponseWrapper(data=updated)
+    return ResponseWrapper(data=serialize_revenue(updated))
 
 
 @router.delete("/{revenue_id}")
@@ -146,20 +189,28 @@ async def delete_revenue(
     current_user: User = Depends(get_current_user),
 ):
     service = RevenueService(db)
-    revenue = await service.get_by_id(revenue_id, current_user.id)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    revenue = await service.get_by_id(revenue_id, scope_user_id)
     if not revenue:
         raise HTTPException(status_code=404, detail="Revenue not found")
 
     # Capture old values before delete
     old_values = {
         "property_id": str(revenue.property_id),
-        "amount": float(revenue.amount),
-        "rental_amount": float(revenue.rental_amount) if revenue.rental_amount else None,
+        "year_month": revenue.year_month,
+        "date": revenue.date.isoformat(),
+        "checkin_date": revenue.checkin_date.isoformat() if revenue.checkin_date else None,
+        "checkout_date": revenue.checkout_date.isoformat() if revenue.checkout_date else None,
         "guest_name": revenue.guest_name,
-        "check_in": revenue.check_in.isoformat() if revenue.check_in else None,
-        "check_out": revenue.check_out.isoformat() if revenue.check_out else None,
+        "listing_name": revenue.listing_name,
         "listing_source": revenue.listing_source,
-        "status": revenue.status.value if hasattr(revenue.status, 'value') else str(revenue.status),
+        "nights": revenue.nights,
+        "gross_amount": float(revenue.gross_amount),
+        "cleaning_fee": float(revenue.cleaning_fee),
+        "platform_fee": float(revenue.platform_fee),
+        "net_amount": float(revenue.net_amount),
+        "external_id": revenue.external_id,
+        "notes": revenue.notes,
     }
 
     await service.delete(revenue)

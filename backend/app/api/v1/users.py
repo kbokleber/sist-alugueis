@@ -51,6 +51,35 @@ async def get_user(
     return ResponseWrapper(data=user)
 
 
+@router.post("", response_model=ResponseWrapper[UserResponse], status_code=status.HTTP_201_CREATED)
+async def create_user(
+    data: UserCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_superuser),
+):
+    service = UserService(db)
+    try:
+        user = await service.create(data)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="CREATE",
+        entity_type="user",
+        entity_id=user.id,
+        new_values={
+            "full_name": user.full_name,
+            "email": user.email,
+            "is_active": user.is_active,
+            "is_superuser": user.is_superuser,
+        },
+    )
+
+    return ResponseWrapper(data=user, message="User created successfully")
+
+
 @router.put("/{user_id}", response_model=ResponseWrapper[UserResponse])
 async def update_user(
     user_id: uuid.UUID,
@@ -88,6 +117,44 @@ async def update_user(
     )
 
     return ResponseWrapper(data=updated)
+
+
+@router.delete("/{user_id}")
+async def delete_user(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_superuser),
+):
+    if str(current_user.id) == str(user_id):
+        raise HTTPException(status_code=400, detail="You cannot delete your own user")
+
+    service = UserService(db)
+    user = await service.get_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    old_values = {
+        "full_name": user.full_name,
+        "email": user.email,
+        "is_active": user.is_active,
+        "is_superuser": user.is_superuser,
+    }
+
+    try:
+        await service.delete(user)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="DELETE",
+        entity_type="user",
+        entity_id=user_id,
+        old_values=old_values,
+    )
+
+    return {"message": "User deleted successfully"}
 
 
 @router.patch("/{user_id}/password")

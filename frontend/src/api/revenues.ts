@@ -1,10 +1,19 @@
 import apiClient from './client'
 import type { Revenue, CreateRevenueRequest } from '@/types/revenue.types'
+import type { ApiResponse } from '@/types/api.types'
 
 export const revenuesApi = {
-  list: async (params?: { property_id?: string; year_month?: string }): Promise<Revenue[]> => {
-    const response = await apiClient.get<{ data: Revenue[] }>('/revenues', { params })
-    return response.data.data
+  list: async (params?: {
+    property_id?: string
+    year_month?: string
+    start_month?: string
+    end_month?: string
+    external_id?: string
+    page?: number
+    per_page?: number
+  }): Promise<{ data: Revenue[]; meta?: ApiResponse<Revenue[]>['meta'] }> => {
+    const response = await apiClient.get<ApiResponse<Revenue[]>>('/revenues', { params })
+    return { data: response.data.data, meta: response.data.meta }
   },
 
   get: async (id: string): Promise<Revenue> => {

@@ -1,6 +1,6 @@
 from __future__ import annotations
 import uuid
-from datetime import datetime, date
+from datetime import datetime, date as date_type
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
@@ -8,9 +8,9 @@ from pydantic import BaseModel, ConfigDict
 class RevenueBase(BaseModel):
     property_id: uuid.UUID
     year_month: str
-    date: date
-    checkin_date: Optional[date] = None
-    checkout_date: Optional[date] = None
+    date: date_type
+    checkin_date: Optional[date_type] = None
+    checkout_date: Optional[date_type] = None
     guest_name: str
     listing_name: Optional[str] = None
     listing_source: Optional[str] = None
@@ -30,9 +30,9 @@ class RevenueCreate(RevenueBase):
 class RevenueUpdate(BaseModel):
     property_id: uuid.UUID | None = None
     year_month: str | None = None
-    date: Optional[date] = None
-    checkin_date: Optional[date] = None
-    checkout_date: Optional[date] = None
+    date: date_type | None = None
+    checkin_date: date_type | None = None
+    checkout_date: date_type | None = None
     guest_name: str | None = None
     listing_name: str | None = None
     listing_source: str | None = None
@@ -50,6 +50,7 @@ class RevenueResponse(RevenueBase):
 
     id: uuid.UUID
     user_id: uuid.UUID
+    property_name: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

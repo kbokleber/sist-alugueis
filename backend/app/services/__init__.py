@@ -4,7 +4,6 @@ from app.services.property_service import PropertyService
 from app.services.revenue_service import RevenueService
 from app.services.expense_service import ExpenseService
 from app.services.category_service import CategoryService
-from app.services.closing_service import ClosingService
 from app.services.dashboard_service import DashboardService
 from app.services.audit_service import AuditService
 
@@ -15,7 +14,6 @@ __all__ = [
     "RevenueService",
     "ExpenseService",
     "CategoryService",
-    "ClosingService",
     "DashboardService",
     "AuditService",
 ]

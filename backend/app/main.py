@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import settings
 from app.api.v1.router import router as api_v1_router
+from app.database import init_db, ensure_property_code_column
 
 
 app = FastAPI(
@@ -40,6 +41,12 @@ async def health_check():
 @app.get("/health/ready")
 async def readiness_check():
     return {"status": "ready"}
+
+
+@app.on_event("startup")
+async def startup_event():
+    await init_db()
+    await ensure_property_code_column()
 
 
 # Mount API

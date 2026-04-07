@@ -29,5 +29,4 @@ class User(Base):
     categories = relationship("FinancialCategory", back_populates="owner", lazy="selectin")
     revenues = relationship("RentalRevenue", back_populates="user", lazy="selectin")
     expenses = relationship("PropertyExpense", back_populates="user", lazy="selectin")
-    closings = relationship("MonthlyClosing", back_populates="user", lazy="selectin")
     audit_logs = relationship("AuditLog", back_populates="user", lazy="selectin")

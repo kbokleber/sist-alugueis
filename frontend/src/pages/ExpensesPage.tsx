@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { expensesApi, categoriesApi } from '@/api/expenses'
+import { expensesApi } from '@/api/expenses'
+import { categoriesApi } from '@/api/categories'
 import { propertiesApi } from '@/api/properties'
 import PageContainer from '@/components/layout/PageContainer'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
@@ -8,12 +9,15 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { FormModal } from '@/components/ui/FormModal'
 import { toast } from '@/stores/toastStore'
-import { formatMoney } from '@/lib/utils'
-import { Plus, Pencil, Trash2, TrendingDown, Loader2 } from 'lucide-react'
+import { useAuthStore } from '@/stores/authStore'
+import { currentYearMonth, formatMoney } from '@/lib/utils'
+import { Plus, Pencil, Trash2, TrendingDown, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Expense } from '@/types/expense.types'
 
 export default function ExpensesPage() {
+  const currentMonth = currentYearMonth()
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
@@ -24,23 +28,46 @@ export default function ExpensesPage() {
   const [amount, setAmount] = useState('')
   const [yearMonth, setYearMonth] = useState('')
   const [dueDate, setDueDate] = useState('')
+  const [filterPropertyId, setFilterPropertyId] = useState('all')
+  const [filterStartMonth, setFilterStartMonth] = useState(currentMonth)
+  const [filterEndMonth, setFilterEndMonth] = useState(currentMonth)
+  const [page, setPage] = useState(1)
+  const perPage = 20
 
   const queryClient = useQueryClient()
+  const userId = useAuthStore((state) => state.user?.id)
+  const hasInvalidRange =
+    Boolean(filterStartMonth) && Boolean(filterEndMonth) && filterStartMonth > filterEndMonth
 
-  const { data: expenses = [], isLoading } = useQuery({
-    queryKey: ['expenses'],
-    queryFn: () => expensesApi.list(),
+  const { data, isLoading: isExpensesLoading } = useQuery({
+    queryKey: ['expenses', userId, filterPropertyId, filterStartMonth, filterEndMonth, page],
+    queryFn: () =>
+      expensesApi.list({
+        property_id: filterPropertyId !== 'all' ? filterPropertyId : undefined,
+        start_month: filterStartMonth || undefined,
+        end_month: filterEndMonth || undefined,
+        page,
+        per_page: perPage,
+      }),
+    enabled: !hasInvalidRange,
+    refetchOnMount: 'always',
   })
 
-  const { data: properties = [] } = useQuery({
-    queryKey: ['properties'],
+  const expenses = data?.data || []
+  const meta = data?.meta || { total: 0, page: 1, per_page: perPage, total_pages: 1 }
+
+  const { data: properties = [], isLoading: isPropertiesLoading } = useQuery({
+    queryKey: ['properties', userId],
     queryFn: propertiesApi.list,
+    refetchOnMount: 'always',
   })
 
-  const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
+  const { data: categories = [], isLoading: isCategoriesLoading } = useQuery({
+    queryKey: ['categories', userId],
     queryFn: categoriesApi.list,
+    refetchOnMount: 'always',
   })
+  const isLoading = isExpensesLoading || isPropertiesLoading || isCategoriesLoading
 
   const createMutation = useMutation({
     mutationFn: expensesApi.create,
@@ -149,6 +176,66 @@ export default function ExpensesPage() {
         </Button>
       }
     >
+      <Card className="mb-6">
+        <CardContent className="p-4">
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600">Competência inicial</label>
+              <Input
+                type="month"
+                value={filterStartMonth}
+                onChange={(e) => {
+                  setFilterStartMonth(e.target.value)
+                  setPage(1)
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600">Competência final</label>
+              <Input
+                type="month"
+                value={filterEndMonth}
+                onChange={(e) => {
+                  setFilterEndMonth(e.target.value)
+                  setPage(1)
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600">Imóvel</label>
+              <select
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                value={filterPropertyId}
+                onChange={(e) => {
+                  setFilterPropertyId(e.target.value)
+                  setPage(1)
+                }}
+              >
+                <option value="all">Todos os imóveis</option>
+                {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setFilterPropertyId('all')
+                  setFilterStartMonth(currentYearMonth())
+                  setFilterEndMonth(currentYearMonth())
+                  setPage(1)
+                }}
+              >
+                Limpar filtros
+              </Button>
+            </div>
+          </div>
+          {hasInvalidRange && (
+            <p className="mt-3 text-sm text-red-600">A competência inicial deve ser menor ou igual a final.</p>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 sm:grid-cols-3 mb-6">
         <Card>
           <CardContent className="p-4">
@@ -165,53 +252,57 @@ export default function ExpensesPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-slate-500">Registros</p>
-            <p className="text-xl font-semibold text-slate-900">{expenses.length}</p>
+            <p className="text-xl font-semibold text-slate-900">{meta.total}</p>
           </CardContent>
         </Card>
       </div>
 
-      {showForm && (
-        <Card className="mb-6">
-          <CardHeader>
-            <h2 className="text-base font-medium">{editing ? 'Editar Despesa' : 'Nova Despesa'}</h2>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <select
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                value={propertyId}
-                onChange={(e) => setPropertyId(e.target.value)}
-                required
-              >
-                <option value="">Imóvel</option>
-                {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-              <select
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-                required
-              >
-                <option value="">Categoria</option>
-                {categories.filter((c) => c.type === 'EXPENSE').map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-              <Input placeholder="Descrição" value={name} onChange={(e) => setName(e.target.value)} required />
-              <Input placeholder="Valor (R$)" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} required />
-              <Input placeholder="Ano-mês (ex: 2026-04)" value={yearMonth} onChange={(e) => setYearMonth(e.target.value)} required />
-              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-              <div className="lg:col-span-3 flex gap-2">
-                <Button type="submit" disabled={isPending}>
-                  {isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
-                  {isPending ? 'Salvando...' : 'Salvar'}
-                </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>Cancelar</Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <FormModal
+        open={showForm}
+        title={editing ? 'Editar despesa' : 'Nova despesa'}
+        description="Atualize os campos da despesa antes de salvar."
+        onClose={resetForm}
+      >
+        <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-slate-700">Imóvel</span>
+            <select
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              value={propertyId}
+              onChange={(e) => setPropertyId(e.target.value)}
+              required
+            >
+              <option value="">Selecione o imóvel</option>
+              {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-slate-700">Categoria</span>
+            <select
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+              required
+            >
+              <option value="">Selecione a categoria</option>
+              {categories.filter((c) => c.type === 'EXPENSE').map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </label>
+          <Input label="Descrição" placeholder="Descrição da despesa" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input label="Valor (R$)" placeholder="0,00" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+          <Input label="Competência" placeholder="2026-04" value={yearMonth} onChange={(e) => setYearMonth(e.target.value)} required />
+          <Input label="Data de vencimento" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <div className="md:col-span-2 xl:col-span-3 flex justify-end gap-2 border-t border-slate-200 pt-4">
+            <Button type="button" variant="outline" onClick={resetForm}>Cancelar</Button>
+            <Button type="submit" disabled={isPending}>
+              {isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              {isPending ? 'Salvando...' : editing ? 'Salvar alterações' : 'Criar despesa'}
+            </Button>
+          </div>
+        </form>
+      </FormModal>
 
       {isLoading && (
         <div className="flex items-center justify-center py-12 text-slate-500">
@@ -237,7 +328,7 @@ export default function ExpensesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-slate-500">
-                    <th className="px-4 py-3 font-medium">Descrição</th>
+                    <th className="px-4 py-3 font-medium">Código do imóvel</th>
                     <th className="px-4 py-3 font-medium">Imóvel</th>
                     <th className="px-4 py-3 font-medium">Categoria</th>
                     <th className="px-4 py-3 font-medium">Vencimento</th>
@@ -249,7 +340,7 @@ export default function ExpensesPage() {
                 <tbody className="divide-y divide-slate-100">
                   {expenses.map((exp) => (
                     <tr key={exp.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-slate-900">{exp.name}</td>
+                      <td className="px-4 py-3 font-medium text-slate-900">{exp.property_code || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{exp.property_name || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{exp.category_name || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{exp.due_date || '—'}</td>
@@ -286,6 +377,32 @@ export default function ExpensesPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {meta.total_pages > 1 && (
+        <div className="mt-6 flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+            disabled={page === 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Anterior
+          </Button>
+          <span className="px-4 text-sm text-slate-600">
+            Página {page} de {meta.total_pages} ({meta.total} registros)
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((currentPage) => Math.min(meta.total_pages || 1, currentPage + 1))}
+            disabled={page === meta.total_pages}
+          >
+            Próxima
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       )}
 
       <ConfirmDialog

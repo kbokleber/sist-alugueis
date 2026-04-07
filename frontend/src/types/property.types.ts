@@ -1,6 +1,7 @@
 export interface Property {
   id: string
   user_id: string
+  code: string | null
   name: string
   address: string | null
   property_value: number
@@ -11,6 +12,7 @@ export interface Property {
 }
 
 export interface CreatePropertyRequest {
+  code?: string
   name: string
   address?: string
   property_value: number

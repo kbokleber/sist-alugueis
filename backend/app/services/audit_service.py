@@ -1,4 +1,5 @@
 import uuid
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import AuditLog
@@ -24,8 +25,8 @@ class AuditService:
             action=action,
             entity_type=entity_type,
             entity_id=entity_id,
-            old_values=old_values,
-            new_values=new_values,
+            old_values=jsonable_encoder(old_values) if old_values is not None else None,
+            new_values=jsonable_encoder(new_values) if new_values is not None else None,
             ip_address=ip_address,
             user_agent=user_agent,
         )

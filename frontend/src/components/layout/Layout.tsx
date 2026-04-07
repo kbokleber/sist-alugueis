@@ -1,7 +1,8 @@
+import type { ReactNode } from 'react'
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
-import { Menu, X, Home, Building, TrendingUp, TrendingDown, PieChart, Users, Settings, LogOut, History } from 'lucide-react'
+import { Menu, X, Home, Building, TrendingUp, TrendingDown, Users, Tag, LogOut, History } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -9,12 +10,16 @@ const navItems = [
   { label: 'Imóveis', path: '/properties', icon: Building },
   { label: 'Receitas', path: '/revenues', icon: TrendingUp },
   { label: 'Despesas', path: '/expenses', icon: TrendingDown },
-  { label: 'Fechamento', path: '/closing', icon: PieChart },
+  { label: 'Categorias', path: '/categories', icon: Tag },
   { label: 'Usuários', path: '/users', icon: Users },
   { label: 'Auditoria', path: '/audit', icon: History },
 ]
 
-export default function Layout() {
+interface LayoutProps {
+  children?: ReactNode
+}
+
+export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuthStore()
   const { sidebarOpen, toggleSidebar } = useUIStore()
   const navigate = useNavigate()
@@ -101,7 +106,7 @@ export default function Layout() {
 
         {/* Page content */}
         <main className="flex-1 overflow-auto p-4 lg:p-6">
-          <Outlet />
+          {children ?? <Outlet />}
         </main>
       </div>
     </div>

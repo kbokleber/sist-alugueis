@@ -45,6 +45,9 @@ class ExpenseResponse(ExpenseBase):
 
     id: uuid.UUID
     user_id: uuid.UUID
+    property_code: Optional[str] = None
+    property_name: Optional[str] = None
+    category_name: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

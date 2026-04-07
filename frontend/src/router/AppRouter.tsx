@@ -6,7 +6,7 @@ import DashboardPage from '@/pages/DashboardPage'
 import PropertiesPage from '@/pages/PropertiesPage'
 import RevenuesPage from '@/pages/RevenuesPage'
 import ExpensesPage from '@/pages/ExpensesPage'
-import ClosingPage from '@/pages/ClosingPage'
+import CategoriesPage from '@/pages/CategoriesPage'
 import UsersPage from '@/pages/UsersPage'
 import AuditPage from '@/pages/AuditPage'
 
@@ -53,10 +53,10 @@ export default function AppRouter() {
         }
       />
       <Route
-        path="/closing"
+        path="/categories"
         element={
           <ProtectedRoute>
-            <ClosingPage />
+            <CategoriesPage />
           </ProtectedRoute>
         }
       />
@@ -76,7 +76,7 @@ export default function AppRouter() {
           </ProtectedRoute>
         }
       />
-      <Route path="*"} element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }

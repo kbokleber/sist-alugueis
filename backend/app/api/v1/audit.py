@@ -2,7 +2,7 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.schemas import ResponseWrapper
+from app.schemas import ResponseWrapper, AuditLogResponse
 from app.services.audit_service import AuditService
 from app.dependencies import get_current_user
 from app.models import User
@@ -11,7 +11,11 @@ from app.models import User
 router = APIRouter(prefix="/audit", tags=["audit"])
 
 
-@router.get("", response_model=ResponseWrapper[list])
+def serialize_audit_log(log) -> AuditLogResponse:
+    return AuditLogResponse.model_validate(log)
+
+
+@router.get("", response_model=ResponseWrapper[list[AuditLogResponse]])
 async def list_audit_logs(
     entity_type: str | None = Query(None),
     entity_id: uuid.UUID | None = Query(None),
@@ -31,7 +35,7 @@ async def list_audit_logs(
     )
     total_pages = (total + per_page - 1) // per_page
     return ResponseWrapper(
-        data=logs,
+        data=[serialize_audit_log(log) for log in logs],
         meta={
             "total": total,
             "page": page,
@@ -41,7 +45,7 @@ async def list_audit_logs(
     )
 
 
-@router.get("/{entity_type}/{entity_id}", response_model=ResponseWrapper[list])
+@router.get("/{entity_type}/{entity_id}", response_model=ResponseWrapper[list[AuditLogResponse]])
 async def get_entity_history(
     entity_type: str,
     entity_id: uuid.UUID,
@@ -50,4 +54,4 @@ async def get_entity_history(
 ):
     service = AuditService(db)
     logs = await service.get_entity_history(entity_type, entity_id)
-    return ResponseWrapper(data=logs)
+    return ResponseWrapper(data=[serialize_audit_log(log) for log in logs])

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import uuid
 from pydantic import BaseModel, ConfigDict
 
@@ -29,7 +31,8 @@ class PropertyDashboardData(BaseModel):
 
 
 class DashboardOverview(BaseModel):
-    year_month: str
+    start_month: str
+    end_month: str
     total_properties: int
     total_revenue: float
     total_expenses: float

@@ -106,30 +106,6 @@ def upgrade() -> None:
     op.create_index('idx_expenses_property_month', 'property_expenses', ['property_id', 'year_month'])
     op.create_index('idx_expenses_category', 'property_expenses', ['category_id'])
 
-    # Create monthly_closings table
-    op.create_table(
-        'monthly_closings',
-        sa.Column('id', sa.Uuid, primary_key=True),
-        sa.Column('user_id', sa.Uuid, sa.ForeignKey('users.id'), nullable=False, index=True),
-        sa.Column('property_id', sa.Uuid, sa.ForeignKey('properties.id'), nullable=False),
-        sa.Column('year_month', sa.String(7), nullable=False),
-        sa.Column('total_revenue', sa.Numeric(15, 2), nullable=False, default=0),
-        sa.Column('total_expenses', sa.Numeric(15, 2), nullable=False, default=0),
-        sa.Column('net_result', sa.Numeric(15, 2), nullable=False, default=0),
-        sa.Column('total_nights', sa.Integer, default=0),
-        sa.Column('total_bookings', sa.Integer, default=0),
-        sa.Column('depreciation_value', sa.Numeric(15, 2), default=0),
-        sa.Column('cleaning_total', sa.Numeric(15, 2), default=0),
-        sa.Column('platform_fee_total', sa.Numeric(15, 2), default=0),
-        sa.Column('other_expenses', sa.Numeric(15, 2), default=0),
-        sa.Column('status', sa.Enum('OPEN', 'CLOSED', name='closingstatus'), default='OPEN'),
-        sa.Column('closed_at', sa.DateTime, nullable=True),
-        sa.Column('notes', sa.Text, nullable=True),
-        sa.Column('created_at', sa.DateTime, server_default=sa.func.now()),
-        sa.Column('updated_at', sa.DateTime, onupdate=sa.func.now()),
-    )
-    op.create_index('idx_closing_property_month', 'monthly_closings', ['property_id', 'year_month'], unique=True)
-
     # Create audit_logs table
     op.create_table(
         'audit_logs',
@@ -150,7 +126,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_table('audit_logs')
-    op.drop_table('monthly_closings')
     op.drop_table('property_expenses')
     op.drop_index('idx_revenues_guest', 'rental_revenues')
     op.drop_index('idx_revenues_user_month', 'rental_revenues')

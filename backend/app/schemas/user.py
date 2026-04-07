@@ -11,11 +11,13 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    is_superuser: bool = False
 
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     is_active: bool | None = None
+    is_superuser: bool | None = None
 
 
 class UserPasswordChange(BaseModel):

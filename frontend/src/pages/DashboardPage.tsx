@@ -3,38 +3,86 @@ import { dashboardApi } from '@/api/dashboard'
 import PageContainer from '@/components/layout/PageContainer'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { formatMoney, currentYearMonth } from '@/lib/utils'
-import { TrendingUp, TrendingDown, Home, Moon, Calendar, DollarSign, PieChart as PieChartIcon } from 'lucide-react'
+import { TrendingUp, TrendingDown, Home, Moon, Calendar, PieChart as PieChartIcon } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend } from 'recharts'
 import { useState, useMemo } from 'react'
 
 const COLORS = ['#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16']
+const DEFAULT_CATEGORY_COLOR = '#BDBDBD'
+
+const renderPieLabel = ({ percent }: { percent?: number }) => {
+  if (!percent || percent < 0.04) return ''
+  return `${(percent * 100).toFixed(0)}%`
+}
 
 export default function DashboardPage() {
-  const [yearMonth, setYearMonth] = useState(currentYearMonth)
+  const [endMonth, setEndMonth] = useState(currentYearMonth)
+  const [startMonth, setStartMonth] = useState(() => `${currentYearMonth().slice(0, 4)}-01`)
   const [selectedProperty, setSelectedProperty] = useState<string>('all')
-  const [months, setMonths] = useState(12)
 
   const { data: overview, isLoading } = useQuery({
-    queryKey: ['dashboard', 'overview', yearMonth],
-    queryFn: () => dashboardApi.overview(yearMonth),
+    queryKey: ['dashboard', 'overview', startMonth, endMonth],
+    queryFn: () => dashboardApi.overview(startMonth, endMonth),
+    enabled: startMonth <= endMonth,
   })
 
   const { data: barData } = useQuery({
-    queryKey: ['dashboard', 'chartBar', selectedProperty, months],
-    queryFn: () => dashboardApi.chartBar(selectedProperty === 'all' ? '' : selectedProperty, months),
-    enabled: !isLoading,
+    queryKey: ['dashboard', 'chartBar', selectedProperty, startMonth, endMonth],
+    queryFn: () => dashboardApi.chartBar(
+      selectedProperty === 'all' ? undefined : selectedProperty,
+      startMonth,
+      endMonth
+    ),
+    enabled: !isLoading && startMonth <= endMonth,
   })
 
   const { data: pieData } = useQuery({
-    queryKey: ['dashboard', 'chartPie', selectedProperty, yearMonth],
-    queryFn: () => dashboardApi.chartPie(selectedProperty === 'all' ? overview?.properties?.[0]?.id || '' : selectedProperty, yearMonth),
-    enabled: !!selectedProperty && selectedProperty !== 'all' && !!overview?.properties?.[0]?.id,
+    queryKey: ['dashboard', 'chartPie', selectedProperty, startMonth, endMonth],
+    queryFn: () => dashboardApi.chartPie(
+      selectedProperty === 'all' ? undefined : selectedProperty,
+      startMonth,
+      endMonth
+    ),
+    enabled: !isLoading && startMonth <= endMonth,
   })
 
   const propertyOptions = useMemo(() => {
     if (!overview?.properties) return []
     return [{ id: 'all', name: 'Todos os Imóveis' }, ...overview.properties]
   }, [overview?.properties])
+
+  const filteredProperties = useMemo(() => {
+    if (!overview?.properties) return []
+    if (selectedProperty === 'all') return overview.properties
+    return overview.properties.filter((property) => property.id === selectedProperty)
+  }, [overview?.properties, selectedProperty])
+
+  const filteredOverview = useMemo(() => {
+    const totalRevenue = filteredProperties.reduce((sum, property) => sum + property.total_revenue, 0)
+    const totalExpenses = filteredProperties.reduce((sum, property) => sum + property.total_expenses, 0)
+    const totalNetResult = filteredProperties.reduce((sum, property) => sum + property.net_result, 0)
+    const totalNights = filteredProperties.reduce((sum, property) => sum + (property.total_nights || 0), 0)
+    const totalBookings = filteredProperties.reduce((sum, property) => sum + (property.total_bookings || 0), 0)
+
+    return {
+      total_properties: filteredProperties.length,
+      total_revenue: totalRevenue,
+      total_expenses: totalExpenses,
+      total_net_result: totalNetResult,
+      total_nights: totalNights,
+      total_bookings: totalBookings,
+    }
+  }, [filteredProperties])
+
+  const pieChartColors = useMemo(() => {
+    const rawColors = pieData?.datasets[0]?.backgroundColor ?? []
+    return rawColors.map((color, index) => {
+      if (!color || color.toUpperCase() === DEFAULT_CATEGORY_COLOR) {
+        return COLORS[index % COLORS.length]
+      }
+      return color
+    })
+  }, [pieData])
 
   if (isLoading) {
     return (
@@ -48,38 +96,38 @@ export default function DashboardPage() {
 
   const stats = [
     {
-      label: 'Receitas do Mês',
-      value: formatMoney(overview?.total_revenue ?? 0),
+      label: 'Receitas do Período',
+      value: formatMoney(filteredOverview.total_revenue),
       icon: TrendingUp,
       color: 'text-green-600 bg-green-50',
     },
     {
-      label: 'Despesas do Mês',
-      value: formatMoney(overview?.total_expenses ?? 0),
+      label: 'Despesas do Período',
+      value: formatMoney(filteredOverview.total_expenses),
       icon: TrendingDown,
       color: 'text-red-600 bg-red-50',
     },
     {
       label: 'Resultado Líquido',
-      value: formatMoney(overview?.total_net_result ?? 0),
-      icon: overview?.total_net_result && overview.total_net_result >= 0 ? TrendingUp : TrendingDown,
-      color: overview?.total_net_result && overview.total_net_result >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50',
+      value: formatMoney(filteredOverview.total_net_result),
+      icon: filteredOverview.total_net_result >= 0 ? TrendingUp : TrendingDown,
+      color: filteredOverview.total_net_result >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50',
     },
     {
       label: 'Noites Ocupadas',
-      value: String(overview?.total_nights ?? 0),
+      value: String(filteredOverview.total_nights),
       icon: Moon,
       color: 'text-blue-600 bg-blue-50',
     },
     {
       label: 'Aluguéis',
-      value: String(overview?.total_bookings ?? 0),
+      value: String(filteredOverview.total_bookings),
       icon: Calendar,
       color: 'text-purple-600 bg-purple-50',
     },
     {
       label: 'Imóveis',
-      value: String(overview?.total_properties ?? 0),
+      value: String(filteredOverview.total_properties),
       icon: Home,
       color: 'text-amber-600 bg-amber-50',
     },
@@ -92,11 +140,22 @@ export default function DashboardPage() {
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-4">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-slate-600">Período:</label>
+              <label className="text-sm font-medium text-slate-600">Início:</label>
               <input
                 type="month"
-                value={yearMonth}
-                onChange={(e) => setYearMonth(e.target.value)}
+                value={startMonth}
+                onChange={(e) => setStartMonth(e.target.value)}
+                max={endMonth}
+                className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-slate-600">Fim:</label>
+              <input
+                type="month"
+                value={endMonth}
+                onChange={(e) => setEndMonth(e.target.value)}
+                min={startMonth}
                 className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -113,6 +172,9 @@ export default function DashboardPage() {
               </select>
             </div>
           </div>
+          {startMonth > endMonth && (
+            <p className="mt-3 text-sm text-red-600">O mês inicial deve ser menor ou igual ao mês final.</p>
+          )}
         </CardContent>
       </Card>
 
@@ -196,22 +258,35 @@ export default function DashboardPage() {
                       outerRadius={90}
                       paddingAngle={2}
                       dataKey="value"
+                      label={renderPieLabel}
+                      labelLine={false}
                     >
                       {pieData.datasets[0]?.data?.map((_, i) => (
-                        <Cell key={`cell-${i}`} fill={pieData.datasets[0]?.backgroundColor?.[i] || COLORS[i % COLORS.length]} />
+                        <Cell key={`cell-${i}`} fill={pieChartColors[i] || COLORS[i % COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip 
-                      formatter={(value: number) => formatMoney(value)}
+                      formatter={(value: number, _name, item) => {
+                        const payload = item?.payload as { value?: number } | undefined
+                        const total = pieData.datasets[0]?.data?.reduce((sum, current) => sum + current, 0) ?? 0
+                        const currentValue = payload?.value ?? value
+                        const percentage = total > 0 ? (currentValue / total) * 100 : 0
+                        return [`${formatMoney(currentValue)} (${percentage.toFixed(1)}%)`, 'Valor']
+                      }}
                       contentStyle={{ borderRadius: '8px', border: '1px solid #E2E8F0' }}
                     />
-                    <Legend />
+                    <Legend formatter={(value, _entry, index) => {
+                      const currentValue = pieData.datasets[0]?.data?.[index] ?? 0
+                      const total = pieData.datasets[0]?.data?.reduce((sum, current) => sum + current, 0) ?? 0
+                      const percentage = total > 0 ? (currentValue / total) * 100 : 0
+                      return `${value} (${percentage.toFixed(1)}%)`
+                    }} />
                   </RePie>
                 </ResponsiveContainer>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm">
                   <PieChartIcon className="h-12 w-12 mb-2" />
-                  <p>Selecione um imóvel específico para ver as categorias</p>
+                  <p>Sem despesas por categoria para exibir</p>
                 </div>
               )}
             </div>
@@ -225,7 +300,7 @@ export default function DashboardPage() {
           <h2 className="text-base font-medium text-slate-900">Resumo por Imóvel</h2>
         </CardHeader>
         <CardContent>
-          {overview?.properties && overview.properties.length > 0 ? (
+          {filteredProperties.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -239,7 +314,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {overview.properties.map((prop) => (
+                  {filteredProperties.map((prop) => (
                     <tr key={prop.id}>
                       <td className="py-3 font-medium text-slate-900">{prop.name}</td>
                       <td className="py-3 text-right text-green-600">{formatMoney(prop.total_revenue)}</td>

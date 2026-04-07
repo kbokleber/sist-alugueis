@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/authStore'
@@ -7,14 +7,36 @@ import { Input } from '@/components/ui/Input'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Building, Eye, EyeOff } from 'lucide-react'
 
+const LAST_LOGIN_STORAGE_KEY = 'last-login-credentials'
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login } = useAuthStore()
+  const { login, setUser } = useAuthStore()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const savedCredentials = localStorage.getItem(LAST_LOGIN_STORAGE_KEY)
+
+    if (!savedCredentials) {
+      return
+    }
+
+    try {
+      const parsedCredentials = JSON.parse(savedCredentials) as {
+        email?: string
+        password?: string
+      }
+
+      setEmail(parsedCredentials.email ?? '')
+      setPassword(parsedCredentials.password ?? '')
+    } catch {
+      localStorage.removeItem(LAST_LOGIN_STORAGE_KEY)
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,7 +44,13 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const tokens = await authApi.login({ email, password })
+      localStorage.setItem(
+        LAST_LOGIN_STORAGE_KEY,
+        JSON.stringify({ email, password }),
+      )
       login({ id: '', email, full_name: '', is_active: true, is_superuser: false, created_at: '', updated_at: null }, tokens.access_token)
+      const currentUser = await authApi.me()
+      setUser(currentUser)
       navigate('/dashboard')
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } } }
@@ -91,9 +119,6 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        <p className="mt-4 text-center text-xs text-slate-400">
-          Demo: admin@sistalugueis.com / Admin@123
-        </p>
       </div>
     </div>
   )

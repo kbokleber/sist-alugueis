@@ -25,7 +25,6 @@ const ENTITY_TYPES = [
   { value: 'expense', label: 'Despesa' },
   { value: 'category', label: 'Categoria' },
   { value: 'user', label: 'Usuário' },
-  { value: 'closing', label: 'Fechamento' },
 ]
 
 const ACTIONS = ['CREATE', 'UPDATE', 'DELETE']

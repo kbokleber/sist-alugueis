@@ -48,12 +48,6 @@ from app.schemas.category import (
     CategoryUpdate,
     CategoryResponse,
 )
-from app.schemas.closing import (
-    ClosingBase,
-    ClosingResponse,
-    ClosingGenerateRequest,
-    ClosingNotesUpdate,
-)
 from app.schemas.dashboard import (
     PropertyDashboard,
     PropertyDashboardData,
@@ -65,6 +59,7 @@ from app.schemas.dashboard import (
     ChartPieDataset,
     DashboardKPIs,
 )
+from app.schemas.audit import AuditLogResponse
 
 __all__ = [
     "ResponseWrapper",
@@ -103,10 +98,6 @@ __all__ = [
     "CategoryCreate",
     "CategoryUpdate",
     "CategoryResponse",
-    "ClosingBase",
-    "ClosingResponse",
-    "ClosingGenerateRequest",
-    "ClosingNotesUpdate",
     "PropertyDashboard",
     "PropertyDashboardData",
     "DashboardOverview",
@@ -116,4 +107,5 @@ __all__ = [
     "ChartPieData",
     "ChartPieDataset",
     "DashboardKPIs",
+    "AuditLogResponse",
 ]
