@@ -36,6 +36,7 @@ def upgrade() -> None:
         'properties',
         sa.Column('id', sa.Uuid, primary_key=True),
         sa.Column('user_id', sa.Uuid, sa.ForeignKey('users.id'), nullable=False, index=True),
+        sa.Column('code', sa.String(50), nullable=True),
         sa.Column('name', sa.String(255), nullable=False),
         sa.Column('address', sa.Text, nullable=True),
         sa.Column('property_value', sa.Numeric(15, 2), nullable=False),

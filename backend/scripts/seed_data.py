@@ -6,7 +6,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.database import AsyncSessionLocal
+from app.database import AsyncSessionLocal, ensure_property_code_column
 from app.models import User, FinancialCategory, CategoryType
 from app.utils.security import hash_password
 
@@ -17,6 +17,7 @@ ADMIN_NAME = "Administrador"
 
 
 async def seed():
+    await ensure_property_code_column()
     async with AsyncSessionLocal() as db:
         # Check if admin exists
         from sqlalchemy import select
