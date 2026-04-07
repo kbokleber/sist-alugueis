@@ -2,12 +2,16 @@ import uuid
 from datetime import date
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import Property, RentalRevenue, PropertyExpense
+from app.models import Property, RentalRevenue, PropertyExpense, ExpenseStatus
 
 
 class DashboardService:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    @staticmethod
+    def _exclude_cancelled_expenses(query):
+        return query.where(PropertyExpense.status != ExpenseStatus.CANCELLED)
 
     @staticmethod
     def _apply_month_range(query, model, start_month: str | None = None, end_month: str | None = None):
@@ -68,7 +72,7 @@ class DashboardService:
         for prop in properties:
             # Revenues
             rev_query = select(
-                func.coalesce(func.sum(RentalRevenue.gross_amount), 0).label("rev"),
+                func.coalesce(func.sum(RentalRevenue.net_amount), 0).label("rev"),
                 func.coalesce(func.sum(RentalRevenue.nights), 0).label("nights"),
                 func.count(RentalRevenue.id).label("bookings"),
             ).where(RentalRevenue.property_id == prop.id)
@@ -76,6 +80,7 @@ class DashboardService:
             exp_query = select(
                 func.coalesce(func.sum(PropertyExpense.amount), 0).label("exp"),
             ).where(PropertyExpense.property_id == prop.id)
+            exp_query = self._exclude_cancelled_expenses(exp_query)
 
             if user_id is not None:
                 rev_query = rev_query.where(RentalRevenue.user_id == user_id)
@@ -169,17 +174,21 @@ class DashboardService:
         rev_data = rev_result.one()
 
         exp_result = await self.db.execute(
-            select(func.coalesce(func.sum(PropertyExpense.amount), 0).label("total_expenses")).where(
-                PropertyExpense.property_id == property_id,
-                PropertyExpense.year_month == year_month,
+            self._exclude_cancelled_expenses(
+                select(func.coalesce(func.sum(PropertyExpense.amount), 0).label("total_expenses")).where(
+                    PropertyExpense.property_id == property_id,
+                    PropertyExpense.year_month == year_month,
+                )
             )
         )
         if user_id is not None:
             exp_result = await self.db.execute(
-                select(func.coalesce(func.sum(PropertyExpense.amount), 0).label("total_expenses")).where(
-                    PropertyExpense.user_id == user_id,
-                    PropertyExpense.property_id == property_id,
-                    PropertyExpense.year_month == year_month,
+                self._exclude_cancelled_expenses(
+                    select(func.coalesce(func.sum(PropertyExpense.amount), 0).label("total_expenses")).where(
+                        PropertyExpense.user_id == user_id,
+                        PropertyExpense.property_id == property_id,
+                        PropertyExpense.year_month == year_month,
+                    )
                 )
             )
         exp_total = float(exp_result.scalar() or 0)
@@ -235,7 +244,7 @@ class DashboardService:
             labels.append(month_date.strftime("%b/%y"))
 
             # Revenue
-            rev_q = select(func.coalesce(func.sum(RentalRevenue.gross_amount), 0)).where(
+            rev_q = select(func.coalesce(func.sum(RentalRevenue.net_amount), 0)).where(
                 RentalRevenue.year_month == ym,
             )
             if user_id is not None:
@@ -249,6 +258,7 @@ class DashboardService:
             exp_q = select(func.coalesce(func.sum(PropertyExpense.amount), 0)).where(
                 PropertyExpense.year_month == ym,
             )
+            exp_q = self._exclude_cancelled_expenses(exp_q)
             if user_id is not None:
                 exp_q = exp_q.where(PropertyExpense.user_id == user_id)
             if property_id:
@@ -288,6 +298,7 @@ class DashboardService:
         )
         if user_id is not None:
             query = query.where(PropertyExpense.user_id == user_id)
+        query = self._exclude_cancelled_expenses(query)
         query = self._apply_month_range(query, PropertyExpense, start_month, end_month)
 
         if property_id:
@@ -326,6 +337,7 @@ class DashboardService:
         exp_query = select(
             func.coalesce(func.sum(PropertyExpense.amount), 0).label("total_expenses"),
         ).where(PropertyExpense.user_id == user_id)
+        exp_query = self._exclude_cancelled_expenses(exp_query)
         
         if year_month:
             rev_query = rev_query.where(RentalRevenue.year_month == year_month)

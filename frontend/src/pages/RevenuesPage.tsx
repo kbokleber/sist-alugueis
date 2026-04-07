@@ -14,8 +14,8 @@ import { currentYearMonth, formatDate, formatMoney } from '@/lib/utils'
 import { Plus, Pencil, Trash2, TrendingUp, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Revenue } from '@/types/revenue.types'
 
-const calculateNetAmount = (grossAmount: number, cleaningFee: number, platformFee: number) =>
-  grossAmount - cleaningFee - platformFee
+const calculateGrossAmount = (netAmount: number, cleaningFee: number, platformFee: number) =>
+  netAmount + cleaningFee + platformFee
 
 const calculateCompetenceMonth = (checkinDate: string, fallbackDate: string) => {
   const reference = checkinDate || fallbackDate
@@ -48,9 +48,7 @@ export default function RevenuesPage() {
   const [cleaningFee, setCleaningFee] = useState('0')
   const [platformFee, setPlatformFee] = useState('0')
   const [netAmount, setNetAmount] = useState('')
-  const [isNetAmountManual, setIsNetAmountManual] = useState(false)
   const [yearMonth, setYearMonth] = useState('')
-  const [listingName, setListingName] = useState('')
   const [listingSource, setListingSource] = useState('')
   const [externalId, setExternalId] = useState('')
   const [notes, setNotes] = useState('')
@@ -140,9 +138,7 @@ export default function RevenuesPage() {
     setCleaningFee('0')
     setPlatformFee('0')
     setNetAmount('')
-    setIsNetAmountManual(false)
     setYearMonth('')
-    setListingName('')
     setListingSource('')
     setExternalId('')
     setNotes('')
@@ -162,9 +158,7 @@ export default function RevenuesPage() {
     setCleaningFee(String(rev.cleaning_fee))
     setPlatformFee(String(rev.platform_fee))
     setNetAmount(String(rev.net_amount))
-    setIsNetAmountManual(rev.net_amount !== calculateNetAmount(rev.gross_amount, rev.cleaning_fee, rev.platform_fee))
     setYearMonth(rev.year_month)
-    setListingName(rev.listing_name || '')
     setListingSource(rev.listing_source || '')
     setExternalId(rev.external_id || '')
     setNotes(rev.notes || '')
@@ -182,12 +176,11 @@ export default function RevenuesPage() {
       checkin_date: checkinDate || undefined,
       checkout_date: checkoutDate || undefined,
       nights: Number(nights),
-      gross_amount: Number(grossAmount),
+      gross_amount: Number(grossAmount || 0),
       cleaning_fee: Number(cleaningFee),
       platform_fee: Number(platformFee),
       net_amount: Number(netAmount || 0),
       year_month: editing ? yearMonth : computedYearMonth,
-      listing_name: listingName || undefined,
       listing_source: listingSource || undefined,
       external_id: externalId || undefined,
       notes: notes || undefined,
@@ -201,21 +194,18 @@ export default function RevenuesPage() {
 
   const isPending = createMutation.isPending || updateMutation.isPending
   const totalGross = revenues.reduce((sum, r) => sum + r.gross_amount, 0)
-  const totalNet = revenues.reduce(
-    (sum, r) => sum + calculateNetAmount(r.gross_amount, r.cleaning_fee, r.platform_fee),
-    0
-  )
+  const totalNet = revenues.reduce((sum, r) => sum + r.net_amount, 0)
 
   useEffect(() => {
-    if (isNetAmountManual) return
+    if (editing) return
 
-    const computedNetAmount = calculateNetAmount(
-      Number(grossAmount || 0),
+    const computedGrossAmount = calculateGrossAmount(
+      Number(netAmount || 0),
       Number(cleaningFee || 0),
       Number(platformFee || 0)
     )
-    setNetAmount(String(computedNetAmount))
-  }, [grossAmount, cleaningFee, platformFee, isNetAmountManual])
+    setGrossAmount(String(computedGrossAmount))
+  }, [netAmount, cleaningFee, platformFee, editing])
 
   useEffect(() => {
     if (!editing) {
@@ -355,18 +345,37 @@ export default function RevenuesPage() {
           <Input label="Entrada do hóspede" type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)} />
           <Input label="Saída do hóspede" type="date" value={checkoutDate} onChange={(e) => setCheckoutDate(e.target.value)} />
           <Input label="Noites" placeholder="Quantidade de noites" type="number" value={nights} onChange={(e) => setNights(e.target.value)} required />
-          <Input label="Valor bruto (R$)" placeholder="0,00" type="number" value={grossAmount} onChange={(e) => setGrossAmount(e.target.value)} required />
-          <Input label="Taxa de limpeza (R$)" placeholder="0,00" type="number" value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)} />
-          <Input label="Taxa da plataforma (R$)" placeholder="0,00" type="number" value={platformFee} onChange={(e) => setPlatformFee(e.target.value)} />
           <Input
             label="Valor líquido (R$)"
             placeholder="0,00"
             type="number"
             value={netAmount}
-            onChange={(e) => {
-              setNetAmount(e.target.value)
-              setIsNetAmountManual(true)
-            }}
+            onChange={(e) => setNetAmount(e.target.value)}
+            required
+          />
+          <Input
+            label="Taxa de limpeza (R$)"
+            placeholder="0,00"
+            type="number"
+            value={cleaningFee}
+            onChange={(e) => setCleaningFee(e.target.value)}
+            required
+          />
+          <Input
+            label="Taxa da plataforma (R$)"
+            placeholder="0,00"
+            type="number"
+            value={platformFee}
+            onChange={(e) => setPlatformFee(e.target.value)}
+            required
+          />
+          <Input
+            label="Valor bruto (R$)"
+            placeholder="0,00"
+            type="number"
+            value={grossAmount}
+            onChange={(e) => setGrossAmount(e.target.value)}
+            readOnly={!editing}
             required
           />
           <Input
@@ -377,7 +386,6 @@ export default function RevenuesPage() {
             readOnly={!editing}
             required
           />
-          <Input label="Nome do anúncio" placeholder="Ex.: Apartamento vista mar" value={listingName} onChange={(e) => setListingName(e.target.value)} />
           <Input label="Origem da reserva" placeholder="AIRBNB, DIRECT..." value={listingSource} onChange={(e) => setListingSource(e.target.value)} />
           <label className="flex flex-col gap-1 md:col-span-2 xl:col-span-3">
             <span className="text-sm font-medium text-slate-700">Observações</span>
@@ -448,7 +456,7 @@ export default function RevenuesPage() {
                       <td className="px-4 py-3 text-right text-red-500">{formatMoney(rev.cleaning_fee)}</td>
                       <td className="px-4 py-3 text-right text-red-500">{formatMoney(rev.platform_fee)}</td>
                       <td className="px-4 py-3 text-right font-medium text-slate-900">
-                        {formatMoney(calculateNetAmount(rev.gross_amount, rev.cleaning_fee, rev.platform_fee))}
+                        {formatMoney(rev.net_amount)}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">

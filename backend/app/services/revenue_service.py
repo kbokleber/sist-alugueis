@@ -11,6 +11,15 @@ class RevenueService:
         self.db = db
 
     @classmethod
+    def _calculate_gross_amount(
+        cls,
+        net_amount: float | int,
+        cleaning_fee: float | int = 0,
+        platform_fee: float | int = 0,
+    ) -> float:
+        return float(net_amount or 0) + float(cleaning_fee or 0) + float(platform_fee or 0)
+
+    @classmethod
     def _get_reference_date(cls, checkin_date: date | None, fallback_date: date) -> date:
         if checkin_date is not None and 2000 <= checkin_date.year <= 2100:
             return checkin_date
@@ -86,6 +95,11 @@ class RevenueService:
         reference_date = self._get_reference_date(data.get("checkin_date"), data.get("date"))
         if reference_date is not None:
             data["year_month"] = self._calculate_year_month(reference_date)
+        data["gross_amount"] = self._calculate_gross_amount(
+            data.get("net_amount", 0),
+            data.get("cleaning_fee", 0),
+            data.get("platform_fee", 0),
+        )
         revenue = RentalRevenue(user_id=user_id, **data)
         self.db.add(revenue)
         await self.db.commit()
@@ -101,6 +115,14 @@ class RevenueService:
             )
             if reference_date is not None:
                 data["year_month"] = self._calculate_year_month(reference_date)
+        if data.get("gross_amount") is None and any(
+            field in data for field in ("net_amount", "cleaning_fee", "platform_fee")
+        ):
+            data["gross_amount"] = self._calculate_gross_amount(
+                data.get("net_amount", revenue.net_amount),
+                data.get("cleaning_fee", revenue.cleaning_fee),
+                data.get("platform_fee", revenue.platform_fee),
+            )
         for field, value in data.items():
             if value is not None:
                 setattr(revenue, field, value)

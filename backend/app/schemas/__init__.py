@@ -39,8 +39,10 @@ from app.schemas.expense import (
     ExpenseCreate,
     ExpenseUpdate,
     ExpensePayPatch,
+    ExpenseStatusPatch,
     ExpenseResponse,
     ExpenseByCategory,
+    ExpenseRecurrenceType,
 )
 from app.schemas.category import (
     CategoryBase,
@@ -92,8 +94,10 @@ __all__ = [
     "ExpenseCreate",
     "ExpenseUpdate",
     "ExpensePayPatch",
+    "ExpenseStatusPatch",
     "ExpenseResponse",
     "ExpenseByCategory",
+    "ExpenseRecurrenceType",
     "CategoryBase",
     "CategoryCreate",
     "CategoryUpdate",

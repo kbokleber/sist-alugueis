@@ -93,6 +93,9 @@ async def create_revenue(
 ):
     service = RevenueService(db)
     revenue = await service.create(current_user.id, data.model_dump())
+    hydrated_revenue = await service.get_by_id(revenue.id, current_user.id)
+    if hydrated_revenue is not None:
+        revenue = hydrated_revenue
 
     # Audit log
     audit_service = AuditService(db)
@@ -167,6 +170,9 @@ async def update_revenue(
     }
 
     updated = await service.update(revenue, data.model_dump(exclude_unset=True))
+    hydrated_updated = await service.get_by_id(updated.id, scope_user_id)
+    if hydrated_updated is not None:
+        updated = hydrated_updated
 
     # Audit log
     audit_service = AuditService(db)

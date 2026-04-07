@@ -31,7 +31,7 @@ export interface CreateRevenueRequest {
   listing_name?: string
   listing_source?: string
   nights: number
-  gross_amount: number
+  gross_amount?: number
   cleaning_fee?: number
   platform_fee?: number
   net_amount: number

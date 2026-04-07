@@ -7,6 +7,7 @@ from app.schemas import (
     ExpenseCreate,
     ExpenseUpdate,
     ExpensePayPatch,
+    ExpenseStatusPatch,
     ExpenseResponse,
     ExpenseByCategory,
     ResponseWrapper,
@@ -20,10 +21,12 @@ router = APIRouter(prefix="/expenses", tags=["expenses"])
 
 
 def serialize_expense(expense) -> ExpenseResponse:
+    is_recurring = expense.name.startswith("[Recorrente]")
     return ExpenseResponse.model_validate(
         {
             "id": expense.id,
             "user_id": expense.user_id,
+            "is_recurring": is_recurring,
             "property_id": expense.property_id,
             "property_code": expense.property.code if expense.property else None,
             "property_name": expense.property.name if expense.property else None,
@@ -82,26 +85,41 @@ async def list_expenses(
     )
 
 
-@router.post("", response_model=ResponseWrapper[ExpenseResponse], status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ResponseWrapper[list[ExpenseResponse]], status_code=status.HTTP_201_CREATED)
 async def create_expense(
     data: ExpenseCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     service = ExpenseService(db)
-    expense = await service.create(current_user.id, data.model_dump())
+    try:
+        expenses = await service.create(current_user.id, data.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # Audit log
     audit_service = AuditService(db)
-    await audit_service.log(
-        user_id=current_user.id,
-        action="CREATE",
-        entity_type="expense",
-        entity_id=expense.id,
-        new_values=data.model_dump(),
-    )
+    for expense in expenses:
+        await audit_service.log(
+            user_id=current_user.id,
+            action="CREATE",
+            entity_type="expense",
+            entity_id=expense.id,
+            new_values={
+                **data.model_dump(exclude={"is_recurring", "recurrence_type", "recurrence_start_date", "recurrence_end_date"}),
+                "year_month": expense.year_month,
+                "due_date": expense.due_date,
+                "status": expense.status.value if hasattr(expense.status, "value") else str(expense.status),
+                "paid_date": expense.paid_date,
+            },
+        )
 
-    return ResponseWrapper(data=serialize_expense(expense), message="Expense created successfully")
+    created_count = len(expenses)
+    message = "Expense created successfully" if created_count == 1 else f"{created_count} expenses created successfully"
+    return ResponseWrapper(
+        data=[serialize_expense(expense) for expense in expenses],
+        message=message,
+    )
 
 
 @router.get("/by-category", response_model=ResponseWrapper[list[ExpenseByCategory]])
@@ -193,7 +211,7 @@ async def mark_expense_paid(
         "paid_date": expense.paid_date.isoformat() if expense.paid_date else None,
     }
 
-    updated = await service.mark_paid(expense, data.paid_date)
+    updated = await service.set_status(expense, data.status, data.paid_date)
 
     # Audit log
     audit_service = AuditService(db)
@@ -203,10 +221,49 @@ async def mark_expense_paid(
         entity_type="expense",
         entity_id=expense_id,
         old_values=old_values,
-        new_values={"status": "PAID", "paid_date": data.paid_date.isoformat() if data.paid_date else None},
+        new_values={
+            "status": updated.status.value if hasattr(updated.status, "value") else str(updated.status),
+            "paid_date": updated.paid_date.isoformat() if updated.paid_date else None,
+        },
     )
 
     return ResponseWrapper(data=serialize_expense(updated), message="Expense marked as paid")
+
+
+@router.patch("/{expense_id}/status", response_model=ResponseWrapper[ExpenseResponse])
+async def update_expense_status(
+    expense_id: uuid.UUID,
+    data: ExpenseStatusPatch,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = ExpenseService(db)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    expense = await service.get_by_id(expense_id, scope_user_id)
+    if not expense:
+        raise HTTPException(status_code=404, detail="Expense not found")
+
+    old_values = {
+        "status": expense.status.value if hasattr(expense.status, "value") else str(expense.status),
+        "paid_date": expense.paid_date.isoformat() if expense.paid_date else None,
+    }
+
+    updated = await service.set_status(expense, data.status, data.paid_date)
+
+    audit_service = AuditService(db)
+    await audit_service.log(
+        user_id=current_user.id,
+        action="UPDATE",
+        entity_type="expense",
+        entity_id=expense_id,
+        old_values=old_values,
+        new_values={
+            "status": updated.status.value if hasattr(updated.status, "value") else str(updated.status),
+            "paid_date": updated.paid_date.isoformat() if updated.paid_date else None,
+        },
+    )
+
+    return ResponseWrapper(data=serialize_expense(updated), message="Expense status updated successfully")
 
 
 @router.delete("/{expense_id}")

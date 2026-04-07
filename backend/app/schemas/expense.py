@@ -1,8 +1,14 @@
 import uuid
 from datetime import datetime, date
 from typing import Optional
+import enum
 from pydantic import BaseModel, ConfigDict
 from app.models.property_expense import ExpenseStatus
+
+
+class ExpenseRecurrenceType(str, enum.Enum):
+    MONTHLY = "MONTHLY"
+    ANNUAL = "ANNUAL"
 
 
 class ExpenseBase(BaseModel):
@@ -18,8 +24,21 @@ class ExpenseBase(BaseModel):
     notes: Optional[str] = None
 
 
-class ExpenseCreate(ExpenseBase):
-    pass
+class ExpenseCreate(BaseModel):
+    property_id: uuid.UUID
+    category_id: uuid.UUID
+    year_month: Optional[str] = None
+    name: str | None = None
+    amount: float
+    is_reserve: bool = False
+    due_date: Optional[date] = None
+    paid_date: Optional[date] = None
+    status: ExpenseStatus = ExpenseStatus.PENDING
+    notes: Optional[str] = None
+    is_recurring: bool = False
+    recurrence_type: ExpenseRecurrenceType | None = None
+    recurrence_start_date: date | None = None
+    recurrence_end_date: date | None = None
 
 
 class ExpenseUpdate(BaseModel):
@@ -36,8 +55,13 @@ class ExpenseUpdate(BaseModel):
 
 
 class ExpensePayPatch(BaseModel):
-    paid_date: date
+    paid_date: date | None = None
     status: ExpenseStatus = ExpenseStatus.PAID
+
+
+class ExpenseStatusPatch(BaseModel):
+    status: ExpenseStatus
+    paid_date: date | None = None
 
 
 class ExpenseResponse(ExpenseBase):
@@ -45,6 +69,7 @@ class ExpenseResponse(ExpenseBase):
 
     id: uuid.UUID
     user_id: uuid.UUID
+    is_recurring: bool = False
     property_code: Optional[str] = None
     property_name: Optional[str] = None
     category_name: Optional[str] = None

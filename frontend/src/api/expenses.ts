@@ -22,8 +22,8 @@ export const expensesApi = {
     return response.data.data
   },
 
-  create: async (data: CreateExpenseRequest): Promise<Expense> => {
-    const response = await apiClient.post<{ data: Expense }>('/expenses', data)
+  create: async (data: CreateExpenseRequest): Promise<Expense[]> => {
+    const response = await apiClient.post<{ data: Expense[] }>('/expenses', data)
     return response.data.data
   },
 
@@ -36,8 +36,11 @@ export const expensesApi = {
     await apiClient.delete(`/expenses/${id}`)
   },
 
-  markPaid: async (id: string): Promise<Expense> => {
-    const response = await apiClient.patch<{ data: Expense }>(`/expenses/${id}/pay`, {})
+  setStatus: async (
+    id: string,
+    data: { status: 'PENDING' | 'PAID' | 'CANCELLED'; paid_date?: string }
+  ): Promise<Expense> => {
+    const response = await apiClient.patch<{ data: Expense }>(`/expenses/${id}/status`, data)
     return response.data.data
   },
 }

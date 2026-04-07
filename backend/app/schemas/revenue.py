@@ -15,7 +15,7 @@ class RevenueBase(BaseModel):
     listing_name: Optional[str] = None
     listing_source: Optional[str] = None
     nights: int
-    gross_amount: float
+    gross_amount: float | None = None
     cleaning_fee: float = 0
     platform_fee: float = 0
     net_amount: float
