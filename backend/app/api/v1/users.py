@@ -164,7 +164,8 @@ async def change_password(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if str(current_user.id) != str(user_id):
+    is_self = str(current_user.id) == str(user_id)
+    if not is_self and not current_user.is_superuser:
         raise HTTPException(status_code=403, detail="Not authorized")
 
     service = UserService(db)
@@ -172,7 +173,11 @@ async def change_password(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    success = await service.change_password(user, data)
+    success = await service.change_password(
+        user,
+        data,
+        require_current_password=not current_user.is_superuser,
+    )
     if not success:
         raise HTTPException(status_code=400, detail="Current password is incorrect")
 

@@ -49,12 +49,11 @@ class UserService:
     async def delete(self, user: User) -> None:
         has_related_data = any(
             (
-                user.properties,
-                user.categories,
-                user.revenues,
-                user.expenses,
-                user.closings,
-                user.audit_logs,
+                getattr(user, "properties", []),
+                getattr(user, "categories", []),
+                getattr(user, "revenues", []),
+                getattr(user, "expenses", []),
+                getattr(user, "audit_logs", []),
             )
         )
         if has_related_data:
@@ -63,8 +62,16 @@ class UserService:
         await self.db.delete(user)
         await self.db.commit()
 
-    async def change_password(self, user: User, data: UserPasswordChange) -> bool:
-        if not verify_password(data.current_password, user.hashed_password):
+    async def change_password(
+        self,
+        user: User,
+        data: UserPasswordChange,
+        require_current_password: bool = True,
+    ) -> bool:
+        if require_current_password and (
+            not data.current_password
+            or not verify_password(data.current_password, user.hashed_password)
+        ):
             return False
         user.hashed_password = hash_password(data.new_password)
         await self.db.commit()

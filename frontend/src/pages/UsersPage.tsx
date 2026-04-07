@@ -9,17 +9,20 @@ import { Badge } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { FormModal } from '@/components/ui/FormModal'
 import { toast } from '@/stores/toastStore'
-import { Plus, Pencil, Trash2, Users, Check, X, Loader2 } from 'lucide-react'
+import { KeyRound, Plus, Pencil, Trash2, Users, Check, X, Loader2 } from 'lucide-react'
 import type { User } from '@/types/auth.types'
 
 export default function UsersPage() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<User | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [passwordUser, setPasswordUser] = useState<User | null>(null)
   
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [isSuperuser, setIsSuperuser] = useState(false)
   
   const queryClient = useQueryClient()
@@ -67,6 +70,20 @@ export default function UsersPage() {
     },
   })
 
+  const changePasswordMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { new_password: string } }) =>
+      usersApi.changePassword(id, data),
+    onSuccess: () => {
+      toast.success('Senha alterada com sucesso!')
+      setPasswordUser(null)
+      setNewPassword('')
+      setConfirmPassword('')
+    },
+    onError: () => {
+      toast.error('Erro ao alterar a senha do usuário.')
+    },
+  })
+
   const toggleActiveMutation = useMutation({
     mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
       usersApi.toggleActive(id, is_active),
@@ -104,6 +121,29 @@ export default function UsersPage() {
     } else {
       createMutation.mutate({ email, full_name: fullName, password, is_superuser: isSuperuser })
     }
+  }
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!passwordUser) {
+      return
+    }
+
+    if (newPassword.length < 8) {
+      toast.error('A nova senha deve ter pelo menos 8 caracteres.')
+      return
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error('A confirmação da senha não confere.')
+      return
+    }
+
+    changePasswordMutation.mutate({
+      id: passwordUser.id,
+      data: { new_password: newPassword },
+    })
   }
 
   return (
@@ -176,6 +216,55 @@ export default function UsersPage() {
         </form>
       </FormModal>
 
+      <FormModal
+        open={!!passwordUser}
+        title="Alterar senha"
+        description={passwordUser ? `Defina uma nova senha para ${passwordUser.full_name}.` : undefined}
+        onClose={() => {
+          setPasswordUser(null)
+          setNewPassword('')
+          setConfirmPassword('')
+        }}
+      >
+        <form onSubmit={handlePasswordSubmit} className="grid gap-4">
+          <Input
+            label="Nova senha"
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="Mínimo 8 caracteres"
+            required
+          />
+          <Input
+            label="Confirmar nova senha"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Repita a nova senha"
+            required
+          />
+          <div className="flex justify-end gap-2 border-t border-slate-200 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setPasswordUser(null)
+                setNewPassword('')
+                setConfirmPassword('')
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={changePasswordMutation.isPending}>
+              {changePasswordMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : null}
+              Salvar nova senha
+            </Button>
+          </div>
+        </form>
+      </FormModal>
+
       {isLoading && (
         <div className="flex items-center justify-center py-12 text-slate-500">
           <Loader2 className="h-8 w-8 animate-spin mr-2" />
@@ -210,6 +299,9 @@ export default function UsersPage() {
                 <div className="mt-4 flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => handleEdit(user)}>
                     <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setPasswordUser(user)}>
+                    <KeyRound className="h-3 w-3 text-slate-600" />
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => toggleActiveMutation.mutate({ id: user.id, is_active: !user.is_active })} disabled={toggleActiveMutation.isPending}>
                     {user.is_active ? <X className="h-3 w-3 text-yellow-500" /> : <Check className="h-3 w-3 text-green-500" />}

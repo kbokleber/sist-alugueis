@@ -14,6 +14,11 @@ export interface UpdateUserRequest {
   is_superuser?: boolean
 }
 
+export interface ChangePasswordRequest {
+  current_password?: string
+  new_password: string
+}
+
 export const usersApi = {
   list: async (): Promise<User[]> => {
     const response = await apiClient.get<{ data: User[] }>('/users')
@@ -37,6 +42,10 @@ export const usersApi = {
 
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/users/${id}`)
+  },
+
+  changePassword: async (id: string, data: ChangePasswordRequest): Promise<void> => {
+    await apiClient.patch(`/users/${id}/password`, data)
   },
 
   toggleActive: async (id: string, is_active: boolean): Promise<User> => {
