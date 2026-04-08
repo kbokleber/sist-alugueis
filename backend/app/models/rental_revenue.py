@@ -38,6 +38,7 @@ class RentalRevenue(Base):
     cleaning_fee: Mapped[float] = mapped_column(DECIMAL(15, 2), default=0)
     platform_fee: Mapped[float] = mapped_column(DECIMAL(15, 2), default=0)
     net_amount: Mapped[float] = mapped_column(DECIMAL(15, 2), nullable=False)
+    pending_amount: Mapped[float | None] = mapped_column(DECIMAL(15, 2), nullable=True)
     external_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

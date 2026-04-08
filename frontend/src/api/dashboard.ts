@@ -7,6 +7,7 @@ export interface DashboardOverview {
   total_revenue: number
   total_expenses: number
   total_net_result: number
+  total_pending_receivables: number
   total_nights: number
   total_bookings: number
   properties: Array<{
@@ -15,6 +16,7 @@ export interface DashboardOverview {
     total_revenue: number
     total_expenses: number
     net_result: number
+    pending_receivables: number
   }>
 }
 

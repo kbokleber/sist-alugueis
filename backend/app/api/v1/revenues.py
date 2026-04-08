@@ -38,6 +38,7 @@ def serialize_revenue(revenue) -> RevenueResponse:
             "cleaning_fee": float(revenue.cleaning_fee),
             "platform_fee": float(revenue.platform_fee),
             "net_amount": float(revenue.net_amount),
+            "pending_amount": float(revenue.pending_amount) if revenue.pending_amount is not None else None,
             "external_id": revenue.external_id,
             "notes": revenue.notes,
             "created_at": revenue.created_at,
@@ -165,6 +166,7 @@ async def update_revenue(
         "cleaning_fee": float(revenue.cleaning_fee),
         "platform_fee": float(revenue.platform_fee),
         "net_amount": float(revenue.net_amount),
+        "pending_amount": float(revenue.pending_amount) if revenue.pending_amount is not None else None,
         "external_id": revenue.external_id,
         "notes": revenue.notes,
     }
@@ -215,6 +217,7 @@ async def delete_revenue(
         "cleaning_fee": float(revenue.cleaning_fee),
         "platform_fee": float(revenue.platform_fee),
         "net_amount": float(revenue.net_amount),
+        "pending_amount": float(revenue.pending_amount) if revenue.pending_amount is not None else None,
         "external_id": revenue.external_id,
         "notes": revenue.notes,
     }

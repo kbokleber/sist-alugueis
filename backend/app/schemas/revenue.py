@@ -19,6 +19,7 @@ class RevenueBase(BaseModel):
     cleaning_fee: float = 0
     platform_fee: float = 0
     net_amount: float
+    pending_amount: float | None = None
     external_id: Optional[str] = None
     notes: Optional[str] = None
 
@@ -41,6 +42,7 @@ class RevenueUpdate(BaseModel):
     cleaning_fee: float | None = None
     platform_fee: float | None = None
     net_amount: float | None = None
+    pending_amount: float | None = None
     external_id: str | None = None
     notes: str | None = None
 

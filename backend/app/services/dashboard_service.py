@@ -65,6 +65,7 @@ class DashboardService:
 
         total_revenue = 0.0
         total_expenses = 0.0
+        total_pending_receivables = 0.0
         total_nights = 0
         total_bookings = 0
         property_summaries = []
@@ -73,6 +74,7 @@ class DashboardService:
             # Revenues
             rev_query = select(
                 func.coalesce(func.sum(RentalRevenue.net_amount), 0).label("rev"),
+                func.coalesce(func.sum(RentalRevenue.pending_amount), 0).label("pending"),
                 func.coalesce(func.sum(RentalRevenue.nights), 0).label("nights"),
                 func.count(RentalRevenue.id).label("bookings"),
             ).where(RentalRevenue.property_id == prop.id)
@@ -96,12 +98,14 @@ class DashboardService:
             exp_data = exp_res.one()
 
             rev_total = float(rev_data.rev or 0)
+            pending_total = float(rev_data.pending or 0)
             exp_total = float(exp_data.exp or 0)
             prop_nights = rev_data.nights or 0
             prop_bookings = rev_data.bookings or 0
 
             total_revenue += rev_total
             total_expenses += exp_total
+            total_pending_receivables += pending_total
             total_nights += prop_nights
             total_bookings += prop_bookings
 
@@ -113,6 +117,7 @@ class DashboardService:
                 "total_revenue": rev_total,
                 "total_expenses": exp_total,
                 "net_result": net_result,
+                "pending_receivables": pending_total,
                 "total_nights": prop_nights,
                 "total_bookings": prop_bookings,
             })
@@ -127,6 +132,7 @@ class DashboardService:
             "total_revenue": total_revenue,
             "total_expenses": total_expenses,
             "total_net_result": total_net_result,
+            "total_pending_receivables": total_pending_receivables,
             "total_nights": total_nights,
             "total_bookings": total_bookings,
             "properties": property_summaries,

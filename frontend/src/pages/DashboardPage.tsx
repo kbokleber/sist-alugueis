@@ -61,6 +61,7 @@ export default function DashboardPage() {
     const totalRevenue = filteredProperties.reduce((sum, property) => sum + property.total_revenue, 0)
     const totalExpenses = filteredProperties.reduce((sum, property) => sum + property.total_expenses, 0)
     const totalNetResult = filteredProperties.reduce((sum, property) => sum + property.net_result, 0)
+    const totalPendingReceivables = filteredProperties.reduce((sum, property) => sum + property.pending_receivables, 0)
     const totalNights = filteredProperties.reduce((sum, property) => sum + (property.total_nights || 0), 0)
     const totalBookings = filteredProperties.reduce((sum, property) => sum + (property.total_bookings || 0), 0)
 
@@ -69,6 +70,7 @@ export default function DashboardPage() {
       total_revenue: totalRevenue,
       total_expenses: totalExpenses,
       total_net_result: totalNetResult,
+      total_pending_receivables: totalPendingReceivables,
       total_nights: totalNights,
       total_bookings: totalBookings,
     }
@@ -112,6 +114,12 @@ export default function DashboardPage() {
       value: formatMoney(filteredOverview.total_net_result),
       icon: filteredOverview.total_net_result >= 0 ? TrendingUp : TrendingDown,
       color: filteredOverview.total_net_result >= 0 ? 'text-green-600 bg-green-50' : 'text-red-600 bg-red-50',
+    },
+    {
+      label: 'Pendências de recebimentos',
+      value: formatMoney(filteredOverview.total_pending_receivables),
+      icon: TrendingDown,
+      color: 'text-red-700 bg-red-100',
     },
     {
       label: 'Noites Ocupadas',
@@ -179,7 +187,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6 mb-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7 mb-6">
         {stats.map((stat) => (
           <Card key={stat.label}>
             <CardContent className="p-3 sm:p-4">

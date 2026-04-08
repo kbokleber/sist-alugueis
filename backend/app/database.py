@@ -55,3 +55,28 @@ async def ensure_property_code_column():
             )
             if result.first() is None:
                 await conn.exec_driver_sql("ALTER TABLE properties ADD COLUMN code VARCHAR(50)")
+
+
+async def ensure_revenue_pending_amount_column():
+    async with engine.begin() as conn:
+        if "sqlite" in settings.database_url:
+            result = await conn.exec_driver_sql("PRAGMA table_info(rental_revenues)")
+            columns = [row[1] for row in result.fetchall()]
+            if "pending_amount" not in columns:
+                await conn.exec_driver_sql(
+                    "ALTER TABLE rental_revenues ADD COLUMN pending_amount NUMERIC(15, 2)"
+                )
+            return
+
+        if "postgresql" in settings.database_url or "postgres" in settings.database_url:
+            result = await conn.exec_driver_sql(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'rental_revenues' AND column_name = 'pending_amount'
+                """
+            )
+            if result.first() is None:
+                await conn.exec_driver_sql(
+                    "ALTER TABLE rental_revenues ADD COLUMN pending_amount NUMERIC(15, 2)"
+                )

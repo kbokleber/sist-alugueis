@@ -37,6 +37,7 @@ class DashboardOverview(BaseModel):
     total_revenue: float
     total_expenses: float
     total_net_result: float
+    total_pending_receivables: float
     total_nights: int
     total_bookings: int
     properties: list[PropertySummaryItem]
@@ -50,6 +51,7 @@ class PropertySummaryItem(BaseModel):
     total_revenue: float
     total_expenses: float
     net_result: float
+    pending_receivables: float
     total_nights: int
     total_bookings: int
 

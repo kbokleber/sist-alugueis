@@ -15,6 +15,7 @@ export interface Revenue {
   cleaning_fee: number
   platform_fee: number
   net_amount: number
+  pending_amount: number | null
   external_id: string | null
   notes: string | null
   created_at: string
@@ -35,6 +36,7 @@ export interface CreateRevenueRequest {
   cleaning_fee?: number
   platform_fee?: number
   net_amount: number
+  pending_amount?: number
   external_id?: string
   notes?: string
 }

@@ -48,6 +48,7 @@ export default function RevenuesPage() {
   const [cleaningFee, setCleaningFee] = useState('0')
   const [platformFee, setPlatformFee] = useState('0')
   const [netAmount, setNetAmount] = useState('')
+  const [pendingAmount, setPendingAmount] = useState('')
   const [yearMonth, setYearMonth] = useState('')
   const [listingSource, setListingSource] = useState('')
   const [externalId, setExternalId] = useState('')
@@ -138,6 +139,7 @@ export default function RevenuesPage() {
     setCleaningFee('0')
     setPlatformFee('0')
     setNetAmount('')
+    setPendingAmount('')
     setYearMonth('')
     setListingSource('')
     setExternalId('')
@@ -158,6 +160,7 @@ export default function RevenuesPage() {
     setCleaningFee(String(rev.cleaning_fee))
     setPlatformFee(String(rev.platform_fee))
     setNetAmount(String(rev.net_amount))
+    setPendingAmount(rev.pending_amount != null ? String(rev.pending_amount) : '')
     setYearMonth(rev.year_month)
     setListingSource(rev.listing_source || '')
     setExternalId(rev.external_id || '')
@@ -180,6 +183,7 @@ export default function RevenuesPage() {
       cleaning_fee: Number(cleaningFee),
       platform_fee: Number(platformFee),
       net_amount: Number(netAmount || 0),
+      pending_amount: Number(pendingAmount || 0),
       year_month: editing ? yearMonth : computedYearMonth,
       listing_source: listingSource || undefined,
       external_id: externalId || undefined,
@@ -195,6 +199,7 @@ export default function RevenuesPage() {
   const isPending = createMutation.isPending || updateMutation.isPending
   const totalGross = revenues.reduce((sum, r) => sum + r.gross_amount, 0)
   const totalNet = revenues.reduce((sum, r) => sum + r.net_amount, 0)
+  const totalPending = revenues.reduce((sum, r) => sum + (r.pending_amount || 0), 0)
 
   useEffect(() => {
     if (editing) return
@@ -297,7 +302,7 @@ export default function RevenuesPage() {
       </Card>
 
       {/* Summary */}
-      <div className="grid gap-4 sm:grid-cols-3 mb-6">
+      <div className="grid gap-4 sm:grid-cols-4 mb-6">
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-slate-500">Total Bruto</p>
@@ -308,6 +313,12 @@ export default function RevenuesPage() {
           <CardContent className="p-4">
             <p className="text-xs text-slate-500">Total Líquido</p>
             <p className="text-xl font-semibold text-green-700">{formatMoney(totalNet)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-slate-500">Total de Pendências</p>
+            <p className="text-xl font-semibold text-red-700">{formatMoney(totalPending)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -379,6 +390,15 @@ export default function RevenuesPage() {
             required
           />
           <Input
+            label="Pendência de recebimento (R$)"
+            placeholder="0,00"
+            type="number"
+            min="0"
+            step="0.01"
+            value={pendingAmount}
+            onChange={(e) => setPendingAmount(e.target.value)}
+          />
+          <Input
             label="Competência"
             placeholder="2026-04"
             value={yearMonth}
@@ -438,13 +458,21 @@ export default function RevenuesPage() {
                     <th className="px-4 py-3 font-medium text-right">Valor Bruto</th>
                     <th className="px-4 py-3 font-medium text-right">Taxa de Limpeza</th>
                     <th className="px-4 py-3 font-medium text-right">Taxa da Plataforma</th>
+                    <th className="px-4 py-3 font-medium text-right">Pendência</th>
                     <th className="px-4 py-3 font-medium text-right">Valor Líquido</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {revenues.map((rev) => (
-                    <tr key={rev.id} className="hover:bg-slate-50">
+                    <tr
+                      key={rev.id}
+                      className={
+                        rev.pending_amount && rev.pending_amount > 0
+                          ? 'bg-red-100 hover:bg-red-200'
+                          : 'hover:bg-slate-50'
+                      }
+                    >
                       <td className="px-4 py-3 text-slate-600">{rev.external_id || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{rev.property_name || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{rev.date ? formatDate(rev.date) : '—'}</td>
@@ -453,6 +481,9 @@ export default function RevenuesPage() {
                       <td className="px-4 py-3 text-right text-green-600">{formatMoney(rev.gross_amount)}</td>
                       <td className="px-4 py-3 text-right text-red-500">{formatMoney(rev.cleaning_fee)}</td>
                       <td className="px-4 py-3 text-right text-red-500">{formatMoney(rev.platform_fee)}</td>
+                      <td className="px-4 py-3 text-right font-medium text-red-700">
+                        {rev.pending_amount && rev.pending_amount > 0 ? formatMoney(rev.pending_amount) : '—'}
+                      </td>
                       <td className="px-4 py-3 text-right font-medium text-slate-900">
                         {formatMoney(rev.net_amount)}
                       </td>
