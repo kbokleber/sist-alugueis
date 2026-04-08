@@ -341,7 +341,7 @@ export default function RevenuesPage() {
           </label>
           <Input label="Hóspede" placeholder="Nome do hóspede" value={guestName} onChange={(e) => setGuestName(e.target.value)} required />
           <Input label="Código da reserva" placeholder="Ex.: HY55J" value={externalId} onChange={(e) => setExternalId(e.target.value)} />
-          <Input label="Data da receita" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+          <Input label="Data lançamento" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
           <Input label="Entrada do hóspede" type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)} />
           <Input label="Saída do hóspede" type="date" value={checkoutDate} onChange={(e) => setCheckoutDate(e.target.value)} />
           <Input label="Noites" placeholder="Quantidade de noites" type="number" value={nights} onChange={(e) => setNights(e.target.value)} required />
@@ -432,7 +432,7 @@ export default function RevenuesPage() {
                   <tr className="border-b border-slate-200 text-left text-slate-500">
                     <th className="px-4 py-3 font-medium">Cód. Reserva</th>
                     <th className="px-4 py-3 font-medium">Imóvel</th>
-                    <th className="px-4 py-3 font-medium">Entrada</th>
+                    <th className="px-4 py-3 font-medium">Lançamento</th>
                     <th className="px-4 py-3 font-medium">Competência</th>
                     <th className="px-4 py-3 font-medium text-right">Noites</th>
                     <th className="px-4 py-3 font-medium text-right">Valor Bruto</th>
@@ -447,9 +447,7 @@ export default function RevenuesPage() {
                     <tr key={rev.id} className="hover:bg-slate-50">
                       <td className="px-4 py-3 text-slate-600">{rev.external_id || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{rev.property_name || '—'}</td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {rev.checkin_date ? formatDate(rev.checkin_date) : '—'}
-                      </td>
+                      <td className="px-4 py-3 text-slate-600">{rev.date ? formatDate(rev.date) : '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{formatCompetenceYearMonth(rev.year_month)}</td>
                       <td className="px-4 py-3 text-right">{rev.nights}</td>
                       <td className="px-4 py-3 text-right text-green-600">{formatMoney(rev.gross_amount)}</td>
