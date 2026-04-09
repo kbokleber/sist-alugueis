@@ -18,6 +18,7 @@ import type { Expense } from '@/types/expense.types'
 
 export default function ExpensesPage() {
   const currentMonth = currentYearMonth()
+  const formatCompetenceYearMonth = (value: string) => value.replace('-', '/')
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([])
@@ -34,6 +35,7 @@ export default function ExpensesPage() {
   const [recurrenceStartDate, setRecurrenceStartDate] = useState('')
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('')
   const [filterPropertyId, setFilterPropertyId] = useState('all')
+  const [filterCategoryId, setFilterCategoryId] = useState('all')
   const [filterStartMonth, setFilterStartMonth] = useState(currentMonth)
   const [filterEndMonth, setFilterEndMonth] = useState(currentMonth)
   const [page, setPage] = useState(1)
@@ -45,10 +47,11 @@ export default function ExpensesPage() {
     Boolean(filterStartMonth) && Boolean(filterEndMonth) && filterStartMonth > filterEndMonth
 
   const { data, isLoading: isExpensesLoading } = useQuery({
-    queryKey: ['expenses', userId, filterPropertyId, filterStartMonth, filterEndMonth, page],
+    queryKey: ['expenses', userId, filterPropertyId, filterCategoryId, filterStartMonth, filterEndMonth, page],
     queryFn: () =>
       expensesApi.list({
         property_id: filterPropertyId !== 'all' ? filterPropertyId : undefined,
+        category_id: filterCategoryId !== 'all' ? filterCategoryId : undefined,
         start_month: filterStartMonth || undefined,
         end_month: filterEndMonth || undefined,
         page,
@@ -215,7 +218,7 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     setSelectedExpenseIds([])
-  }, [filterPropertyId, filterStartMonth, filterEndMonth, page])
+  }, [filterPropertyId, filterCategoryId, filterStartMonth, filterEndMonth, page])
 
   useEffect(() => {
     setSelectedExpenseIds((current) => current.filter((id) => expenses.some((expense) => expense.id === id)))
@@ -255,7 +258,7 @@ export default function ExpensesPage() {
     >
       <Card className="mb-6">
         <CardContent className="p-4">
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-5">
             <div className="space-y-1">
               <label className="text-sm font-medium text-slate-600">Competência inicial</label>
               <Input
@@ -292,12 +295,31 @@ export default function ExpensesPage() {
                 {properties.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600">Categoria</label>
+              <select
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                value={filterCategoryId}
+                onChange={(e) => {
+                  setFilterCategoryId(e.target.value)
+                  setPage(1)
+                }}
+              >
+                <option value="all">Todas as categorias</option>
+                {categories
+                  .filter((category) => category.type === 'EXPENSE')
+                  .map((category) => (
+                    <option key={category.id} value={category.id}>{category.name}</option>
+                  ))}
+              </select>
+            </div>
             <div className="flex items-end">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
                   setFilterPropertyId('all')
+                  setFilterCategoryId('all')
                   setFilterStartMonth(currentYearMonth())
                   setFilterEndMonth(currentYearMonth())
                   setPage(1)
@@ -498,6 +520,7 @@ export default function ExpensesPage() {
                     <th className="px-4 py-3 font-medium">Código do imóvel</th>
                     <th className="px-4 py-3 font-medium">Imóvel</th>
                     <th className="px-4 py-3 font-medium">Categoria</th>
+                    <th className="px-4 py-3 font-medium">Competência</th>
                     <th className="px-4 py-3 font-medium">Recorrência</th>
                     <th className="px-4 py-3 font-medium">Vencimento</th>
                     <th className="px-4 py-3 font-medium text-right">Valor</th>
@@ -524,6 +547,7 @@ export default function ExpensesPage() {
                       <td className="px-4 py-3 font-medium text-slate-900">{exp.property_code || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{exp.property_name || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{exp.category_name || '—'}</td>
+                      <td className="px-4 py-3 text-slate-600">{formatCompetenceYearMonth(exp.year_month)}</td>
                       <td className="px-4 py-3">{recurringBadge(exp.is_recurring)}</td>
                       <td className="px-4 py-3 text-slate-600">{exp.due_date || '—'}</td>
                       <td className="px-4 py-3 text-right text-red-600">{formatMoney(exp.amount)}</td>
