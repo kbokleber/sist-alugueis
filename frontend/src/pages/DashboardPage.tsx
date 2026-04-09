@@ -60,9 +60,9 @@ export default function DashboardPage() {
   const filteredOverview = useMemo(() => {
     const totalRevenue = filteredProperties.reduce((sum, property) => sum + property.total_revenue, 0)
     const totalExpenses = filteredProperties.reduce((sum, property) => sum + property.total_expenses, 0)
-    const totalNetResult = filteredProperties.reduce((sum, property) => sum + property.net_result, 0)
     const totalPendingReceivables = filteredProperties.reduce((sum, property) => sum + property.pending_receivables, 0)
     const totalReceivedRevenue = totalRevenue - totalPendingReceivables
+    const totalNetResult = totalReceivedRevenue - totalExpenses
     const totalNights = filteredProperties.reduce((sum, property) => sum + (property.total_nights || 0), 0)
     const totalBookings = filteredProperties.reduce((sum, property) => sum + (property.total_bookings || 0), 0)
 
