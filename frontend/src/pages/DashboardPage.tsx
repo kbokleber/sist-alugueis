@@ -86,6 +86,22 @@ export default function DashboardPage() {
     })
   }, [pieData])
 
+  const normalizedBarData = useMemo(() => {
+    if (!barData?.labels?.length) return []
+
+    const revenuesDataset = barData.datasets.find((dataset) => dataset.label === 'Receitas')
+    const pendingDataset = barData.datasets.find((dataset) => dataset.label === 'Pendências')
+      ?? barData.datasets.find((dataset) => dataset.label === 'Pendências de recebimento')
+    const expensesDataset = barData.datasets.find((dataset) => dataset.label === 'Despesas')
+
+    return barData.labels.map((label, i) => ({
+      month: label,
+      receitas: revenuesDataset?.data?.[i] ?? 0,
+      pendencias: pendingDataset?.data?.[i] ?? 0,
+      despesas: expensesDataset?.data?.[i] ?? 0,
+    }))
+  }, [barData])
+
   if (isLoading) {
     return (
       <PageContainer title="Dashboard">
@@ -214,13 +230,9 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="h-64">
-              {barData && barData.labels && barData.labels.length > 0 ? (
+              {normalizedBarData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData.labels.map((label, i) => ({
-                    month: label,
-                    receitas: barData.datasets[0]?.data?.[i] ?? 0,
-                    despesas: barData.datasets[1]?.data?.[i] ?? 0,
-                  }))}>
+                  <BarChart data={normalizedBarData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#64748B" />
                     <YAxis tick={{ fontSize: 12 }} stroke="#64748B" tickFormatter={(v) => `R$ ${v / 1000}k`} />
@@ -229,7 +241,8 @@ export default function DashboardPage() {
                       contentStyle={{ borderRadius: '8px', border: '1px solid #E2E8F0' }}
                     />
                     <Legend />
-                    <Bar dataKey="receitas" name="Receitas" fill="#10B981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="receitas" name="Receitas" stackId="receitas" fill="#10B981" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="pendencias" name="Pendências de recebimento" stackId="receitas" fill="#F59E0B" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="despesas" name="Despesas" fill="#EF4444" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>

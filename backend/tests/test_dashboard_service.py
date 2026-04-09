@@ -63,3 +63,62 @@ async def test_get_overview_includes_pending_receivables():
 
     assert overview["total_pending_receivables"] == 320.0
     assert overview["properties"][0]["pending_receivables"] == 320.0
+
+
+@pytest.mark.asyncio
+async def test_get_bar_chart_data_includes_pending_receivables_dataset():
+    engine = create_async_engine("sqlite+aiosqlite:///./test_dashboard_chart.db", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as db_session:
+        user = User(
+            id=uuid.uuid4(),
+            email="chart@test.com",
+            hashed_password="hashed",
+            full_name="Chart Test",
+            is_active=True,
+            is_superuser=False,
+        )
+        property_item = Property(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            name="Apartamento Teste",
+            property_value=Decimal("300000.00"),
+            monthly_depreciation_percent=Decimal("1.00"),
+            is_active=True,
+        )
+        revenue = RentalRevenue(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            property_id=property_item.id,
+            year_month="2026-05",
+            date=date(2026, 5, 10),
+            guest_name="Hospede Chart",
+            nights=3,
+            gross_amount=Decimal("900.00"),
+            cleaning_fee=Decimal("80.00"),
+            platform_fee=Decimal("40.00"),
+            net_amount=Decimal("780.00"),
+            pending_amount=Decimal("150.00"),
+        )
+
+        db_session.add(user)
+        db_session.add(property_item)
+        db_session.add(revenue)
+        await db_session.commit()
+
+        service = DashboardService(db_session)
+        chart_data = await service.get_bar_chart_data(user.id, property_item.id, "2026-05", "2026-05")
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+
+    assert chart_data["labels"] == ["May/26"]
+    assert chart_data["datasets"][0]["label"] == "Receitas"
+    assert chart_data["datasets"][0]["data"] == [780.0]
+    assert chart_data["datasets"][1]["label"] == "Pendências"
+    assert chart_data["datasets"][1]["data"] == [150.0]
+    assert chart_data["datasets"][2]["label"] == "Despesas"

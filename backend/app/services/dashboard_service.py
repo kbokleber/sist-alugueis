@@ -243,6 +243,7 @@ class DashboardService:
 
         labels = []
         revenues_data = []
+        pending_data = []
         expenses_data = []
 
         for ym in self._iter_months(start_month, end_month):
@@ -250,7 +251,10 @@ class DashboardService:
             labels.append(month_date.strftime("%b/%y"))
 
             # Revenue
-            rev_q = select(func.coalesce(func.sum(RentalRevenue.net_amount), 0)).where(
+            rev_q = select(
+                func.coalesce(func.sum(RentalRevenue.net_amount), 0).label("revenue"),
+                func.coalesce(func.sum(RentalRevenue.pending_amount), 0).label("pending"),
+            ).where(
                 RentalRevenue.year_month == ym,
             )
             if user_id is not None:
@@ -258,7 +262,9 @@ class DashboardService:
             if property_id:
                 rev_q = rev_q.where(RentalRevenue.property_id == property_id)
             rev_res = await self.db.execute(rev_q)
-            revenues_data.append(float(rev_res.scalar() or 0))
+            rev_row = rev_res.one()
+            revenues_data.append(float(rev_row.revenue or 0))
+            pending_data.append(float(rev_row.pending or 0))
 
             # Expenses
             exp_q = select(func.coalesce(func.sum(PropertyExpense.amount), 0)).where(
@@ -276,6 +282,7 @@ class DashboardService:
             "labels": labels,
             "datasets": [
                 {"label": "Receitas", "data": revenues_data},
+                {"label": "Pendências", "data": pending_data},
                 {"label": "Despesas", "data": expenses_data},
             ],
         }
