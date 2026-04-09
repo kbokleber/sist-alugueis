@@ -130,3 +130,36 @@ async def test_set_status_to_paid_defaults_paid_date_and_can_reopen_to_pending()
     assert reopened_expense.paid_date is None
     assert session.commit_calls == 2
     assert session.refresh_calls == 2
+
+
+@pytest.mark.asyncio
+async def test_update_reloads_expense_with_relationships(monkeypatch):
+    session = FakeAsyncSession()
+    service = ExpenseService(session)
+    expense = SimpleNamespace(
+        id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        name="Internet antiga",
+        amount=100,
+    )
+    reloaded_expense = SimpleNamespace(
+        id=expense.id,
+        user_id=expense.user_id,
+        name="Internet nova",
+        property=SimpleNamespace(code="AND", name="Andorinhas"),
+        category=SimpleNamespace(name="Internet"),
+    )
+
+    async def fake_get_by_id(expense_id, user_id):
+        assert expense_id == expense.id
+        assert user_id == expense.user_id
+        return reloaded_expense
+
+    monkeypatch.setattr(service, "get_by_id", fake_get_by_id)
+
+    updated = await service.update(expense, {"name": "Internet nova"})
+
+    assert updated is reloaded_expense
+    assert expense.name == "Internet nova"
+    assert session.commit_calls == 1
+    assert session.refresh_calls == 1

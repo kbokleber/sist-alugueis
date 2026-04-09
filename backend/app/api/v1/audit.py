@@ -1,4 +1,5 @@
 import uuid
+from datetime import timezone
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
@@ -12,7 +13,11 @@ router = APIRouter(prefix="/audit", tags=["audit"])
 
 
 def serialize_audit_log(log) -> AuditLogResponse:
-    return AuditLogResponse.model_validate(log)
+    payload = AuditLogResponse.model_validate(log).model_dump()
+    created_at = payload.get("created_at")
+    if created_at is not None and created_at.tzinfo is None:
+        payload["created_at"] = created_at.replace(tzinfo=timezone.utc)
+    return AuditLogResponse.model_validate(payload)
 
 
 @router.get("", response_model=ResponseWrapper[list[AuditLogResponse]])

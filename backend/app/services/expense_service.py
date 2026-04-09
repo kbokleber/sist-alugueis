@@ -12,6 +12,15 @@ class ExpenseService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def _reload_with_relations(self, expense: PropertyExpense) -> PropertyExpense:
+        expense_id = getattr(expense, "id", None)
+        if expense_id is None:
+            return expense
+
+        user_id = getattr(expense, "user_id", None)
+        reloaded = await self.get_by_id(expense_id, user_id)
+        return reloaded or expense
+
     @staticmethod
     def _normalize_name(name: str | None, is_recurring: bool) -> str:
         prefix = "[Recorrente]"
@@ -181,7 +190,7 @@ class ExpenseService:
                 setattr(expense, field, value)
         await self.db.commit()
         await self.db.refresh(expense)
-        return expense
+        return await self._reload_with_relations(expense)
 
     async def delete(self, expense: PropertyExpense) -> None:
         await self.db.delete(expense)
@@ -197,7 +206,7 @@ class ExpenseService:
         expense.paid_date = paid_date or date.today() if status == ExpenseStatus.PAID else None
         await self.db.commit()
         await self.db.refresh(expense)
-        return expense
+        return await self._reload_with_relations(expense)
 
     async def get_by_category(
         self,
