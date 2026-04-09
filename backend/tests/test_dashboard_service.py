@@ -116,7 +116,7 @@ async def test_get_bar_chart_data_includes_pending_receivables_dataset():
         await conn.run_sync(Base.metadata.drop_all)
     await engine.dispose()
 
-    assert chart_data["labels"] == ["May/26"]
+    assert chart_data["labels"] == ["mai/26"]
     assert chart_data["datasets"][0]["label"] == "Receitas"
     assert chart_data["datasets"][0]["data"] == [780.0]
     assert chart_data["datasets"][1]["label"] == "Pendências"

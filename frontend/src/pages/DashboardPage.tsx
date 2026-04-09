@@ -62,12 +62,14 @@ export default function DashboardPage() {
     const totalExpenses = filteredProperties.reduce((sum, property) => sum + property.total_expenses, 0)
     const totalNetResult = filteredProperties.reduce((sum, property) => sum + property.net_result, 0)
     const totalPendingReceivables = filteredProperties.reduce((sum, property) => sum + property.pending_receivables, 0)
+    const totalReceivedRevenue = totalRevenue - totalPendingReceivables
     const totalNights = filteredProperties.reduce((sum, property) => sum + (property.total_nights || 0), 0)
     const totalBookings = filteredProperties.reduce((sum, property) => sum + (property.total_bookings || 0), 0)
 
     return {
       total_properties: filteredProperties.length,
       total_revenue: totalRevenue,
+      total_received_revenue: totalReceivedRevenue,
       total_expenses: totalExpenses,
       total_net_result: totalNetResult,
       total_pending_receivables: totalPendingReceivables,
@@ -115,7 +117,7 @@ export default function DashboardPage() {
   const stats = [
     {
       label: 'Receitas do Período',
-      value: formatMoney(filteredOverview.total_revenue),
+      value: formatMoney(filteredOverview.total_received_revenue),
       icon: TrendingUp,
       color: 'text-green-600 bg-green-50',
     },

@@ -6,6 +6,21 @@ from app.models import Property, RentalRevenue, PropertyExpense, ExpenseStatus
 
 
 class DashboardService:
+    MONTH_LABELS_PT_BR = {
+        1: "jan",
+        2: "fev",
+        3: "mar",
+        4: "abr",
+        5: "mai",
+        6: "jun",
+        7: "jul",
+        8: "ago",
+        9: "set",
+        10: "out",
+        11: "nov",
+        12: "dez",
+    }
+
     def __init__(self, db: AsyncSession):
         self.db = db
 
@@ -248,7 +263,7 @@ class DashboardService:
 
         for ym in self._iter_months(start_month, end_month):
             month_date = date(int(ym[:4]), int(ym[5:7]), 1)
-            labels.append(month_date.strftime("%b/%y"))
+            labels.append(f"{self.MONTH_LABELS_PT_BR[month_date.month]}/{str(month_date.year)[-2:]}")
 
             # Revenue
             rev_q = select(

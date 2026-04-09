@@ -57,6 +57,27 @@ async def ensure_property_code_column():
                 await conn.exec_driver_sql("ALTER TABLE properties ADD COLUMN code VARCHAR(50)")
 
 
+async def ensure_property_image_url_column():
+    async with engine.begin() as conn:
+        if "sqlite" in settings.database_url:
+            result = await conn.exec_driver_sql("PRAGMA table_info(properties)")
+            columns = [row[1] for row in result.fetchall()]
+            if "image_url" not in columns:
+                await conn.exec_driver_sql("ALTER TABLE properties ADD COLUMN image_url TEXT")
+            return
+
+        if "postgresql" in settings.database_url or "postgres" in settings.database_url:
+            result = await conn.exec_driver_sql(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'properties' AND column_name = 'image_url'
+                """
+            )
+            if result.first() is None:
+                await conn.exec_driver_sql("ALTER TABLE properties ADD COLUMN image_url TEXT")
+
+
 async def ensure_revenue_pending_amount_column():
     async with engine.begin() as conn:
         if "sqlite" in settings.database_url:

@@ -9,6 +9,7 @@ class PropertyBase(BaseModel):
     code: str | None = None
     name: str
     address: str | None = None
+    image_url: str | None = None
     property_value: float
     monthly_depreciation_percent: float = 1.00
 
@@ -21,6 +22,7 @@ class PropertyUpdate(BaseModel):
     code: str | None = None
     name: str | None = None
     address: str | None = None
+    image_url: str | None = None
     property_value: float | None = None
     monthly_depreciation_percent: float | None = None
     is_active: bool | None = None
@@ -46,3 +48,7 @@ class PropertySummary(BaseModel):
     net_result: float = 0
     total_nights: int = 0
     total_bookings: int = 0
+
+
+class PropertyImageUploadResponse(BaseModel):
+    image_url: str

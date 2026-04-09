@@ -1,5 +1,7 @@
+import base64
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas import (
@@ -7,6 +9,7 @@ from app.schemas import (
     PropertyUpdate,
     PropertyResponse,
     PropertySummary,
+    PropertyImageUploadResponse,
     ResponseWrapper,
 )
 from app.services.property_service import PropertyService
@@ -16,6 +19,12 @@ from app.models import User
 
 
 router = APIRouter(prefix="/properties", tags=["properties"])
+MAX_PROPERTY_IMAGE_BYTES = 5 * 1024 * 1024
+ALLOWED_PROPERTY_IMAGE_TYPES = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+}
 
 
 @router.get("", response_model=ResponseWrapper[list[PropertyResponse]])
@@ -27,6 +36,24 @@ async def list_properties(
     scope_user_id = None if current_user.is_superuser else current_user.id
     properties = await service.get_all_for_user(scope_user_id)
     return ResponseWrapper(data=properties)
+
+
+@router.post("/upload-image", response_model=ResponseWrapper[PropertyImageUploadResponse])
+async def upload_property_image(
+    image: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    if image.content_type not in ALLOWED_PROPERTY_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Formato de imagem inválido. Use JPG, PNG ou WEBP.")
+
+    content = await image.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Arquivo de imagem vazio.")
+    if len(content) > MAX_PROPERTY_IMAGE_BYTES:
+        raise HTTPException(status_code=400, detail="A imagem deve ter no máximo 5 MB.")
+
+    encoded_content = base64.b64encode(content).decode("ascii")
+    return ResponseWrapper(data={"image_url": f"data:{image.content_type};base64,{encoded_content}"})
 
 
 @router.post("", response_model=ResponseWrapper[PropertyResponse], status_code=status.HTTP_201_CREATED)
@@ -41,6 +68,7 @@ async def create_property(
         code=data.code,
         name=data.name,
         address=data.address,
+        image_url=data.image_url,
         property_value=data.property_value,
         monthly_depreciation_percent=data.monthly_depreciation_percent,
     )
@@ -90,6 +118,7 @@ async def update_property(
         "code": prop.code,
         "name": prop.name,
         "address": prop.address,
+        "image_url": prop.image_url,
         "property_value": float(prop.property_value),
         "monthly_depreciation_percent": float(prop.monthly_depreciation_percent) if prop.monthly_depreciation_percent else None,
         "is_active": prop.is_active,
@@ -128,6 +157,7 @@ async def delete_property(
         "code": prop.code,
         "name": prop.name,
         "address": prop.address,
+        "image_url": prop.image_url,
         "property_value": float(prop.property_value),
         "is_active": prop.is_active,
     }

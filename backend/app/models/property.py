@@ -23,6 +23,7 @@ class Property(Base):
     code: Mapped[str | None] = mapped_column(String(50), nullable=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     property_value: Mapped[float] = mapped_column(DECIMAL(15, 2), nullable=False)
     monthly_depreciation_percent: Mapped[float] = mapped_column(
         DECIMAL(5, 2), default=1.00

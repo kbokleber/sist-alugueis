@@ -4,6 +4,7 @@ export interface Property {
   code: string | null
   name: string
   address: string | null
+  image_url: string | null
   property_value: number
   monthly_depreciation_percent: number
   is_active: boolean
@@ -15,6 +16,7 @@ export interface CreatePropertyRequest {
   code?: string
   name: string
   address?: string
+  image_url?: string
   property_value: number
   monthly_depreciation_percent?: number
 }

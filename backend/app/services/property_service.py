@@ -22,13 +22,22 @@ class PropertyService:
         result = await self.db.execute(query.order_by(Property.name))
         return list(result.scalars().all())
 
-    async def create(self, user_id: uuid.UUID, code: str | None, name: str, address: str | None,
-                     property_value: float, monthly_depreciation_percent: float = 1.00) -> Property:
+    async def create(
+        self,
+        user_id: uuid.UUID,
+        code: str | None,
+        name: str,
+        address: str | None,
+        image_url: str | None,
+        property_value: float,
+        monthly_depreciation_percent: float = 1.00,
+    ) -> Property:
         prop = Property(
             user_id=user_id,
             code=code,
             name=name,
             address=address,
+            image_url=image_url,
             property_value=property_value,
             monthly_depreciation_percent=monthly_depreciation_percent,
         )

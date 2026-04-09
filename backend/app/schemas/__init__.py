@@ -26,6 +26,7 @@ from app.schemas.property import (
     PropertyUpdate,
     PropertyResponse,
     PropertySummary,
+    PropertyImageUploadResponse,
 )
 from app.schemas.revenue import (
     RevenueBase,
@@ -85,6 +86,7 @@ __all__ = [
     "PropertyUpdate",
     "PropertyResponse",
     "PropertySummary",
+    "PropertyImageUploadResponse",
     "RevenueBase",
     "RevenueCreate",
     "RevenueUpdate",

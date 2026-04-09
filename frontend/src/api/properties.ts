@@ -17,6 +17,17 @@ export const propertiesApi = {
     return response.data.data
   },
 
+  uploadImage: async (file: File): Promise<string> => {
+    const formData = new FormData()
+    formData.append('image', file)
+    const response = await apiClient.post<{ data: { image_url: string } }>('/properties/upload-image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
+    return response.data.data.image_url
+  },
+
   update: async (id: string, data: Partial<CreatePropertyRequest>): Promise<Property> => {
     const response = await apiClient.put<{ data: Property }>(`/properties/${id}`, data)
     return response.data.data

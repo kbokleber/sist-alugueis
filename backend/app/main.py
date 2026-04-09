@@ -3,7 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.config import settings
 from app.api.v1.router import router as api_v1_router
-from app.database import init_db, ensure_property_code_column, ensure_revenue_pending_amount_column
+from app.database import (
+    init_db,
+    ensure_property_code_column,
+    ensure_property_image_url_column,
+    ensure_revenue_pending_amount_column,
+)
 
 
 app = FastAPI(
@@ -47,8 +52,8 @@ async def readiness_check():
 async def startup_event():
     await init_db()
     await ensure_property_code_column()
+    await ensure_property_image_url_column()
     await ensure_revenue_pending_amount_column()
 
 
-# Mount API
 app.include_router(api_v1_router, prefix="/api")
