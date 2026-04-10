@@ -186,6 +186,18 @@ export default function DashboardPage() {
     return diffInDays > 0 ? diffInDays : null
   }
 
+  const getRemainingDays = (checkoutDate?: string | null) => {
+    if (!checkoutDate) return null
+
+    const today = new Date()
+    const currentDate = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+    const checkout = new Date(`${checkoutDate}T00:00:00`)
+    const diffInMs = checkout.getTime() - currentDate.getTime()
+    const diffInDays = Math.round(diffInMs / (1000 * 60 * 60 * 24))
+
+    return diffInDays >= 0 ? diffInDays : null
+  }
+
   return (
     <PageContainer title="Dashboard">
       <Card className="mb-6">
@@ -203,6 +215,9 @@ export default function DashboardPage() {
                 const occupiedDays = property.occupied_today
                   ? getOccupiedDays(property.current_checkin_date, property.current_checkout_date)
                   : getOccupiedDays(property.last_checkin_date, property.last_checkout_date)
+                const remainingDays = property.occupied_today
+                  ? getRemainingDays(property.current_checkout_date)
+                  : null
                 const periodText = property.occupied_today
                   ? getReservationPeriod(property.current_checkin_date, property.current_checkout_date)
                   : getReservationPeriod(property.last_checkin_date, property.last_checkout_date)
@@ -231,13 +246,22 @@ export default function DashboardPage() {
 
                       {guestName ? (
                         <div className="space-y-1">
-                          <p className="text-sm font-medium text-slate-800">
+                          <p className={property.occupied_today ? 'text-base font-semibold text-slate-900' : 'text-sm font-medium text-slate-800'}>
                             {property.occupied_today ? guestName : `Última reserva: ${guestName}`}
                           </p>
-                          <p className="text-sm text-slate-600">{periodText}</p>
-                          {occupiedDays !== null && (
-                            <p className="text-sm text-slate-600">
-                              {occupiedDays} {occupiedDays === 1 ? 'dia' : 'dias'}
+                          <div className="flex items-center justify-between gap-3 text-sm text-slate-600">
+                            <p>{periodText}</p>
+                            {occupiedDays !== null && (
+                              <p className="whitespace-nowrap">
+                                {occupiedDays} {occupiedDays === 1 ? 'dia' : 'dias'}
+                              </p>
+                            )}
+                          </div>
+                          {remainingDays !== null && (
+                            <p className="text-sm font-medium text-emerald-700">
+                              {remainingDays === 0
+                                ? 'Check-out hoje'
+                                : `${remainingDays} ${remainingDays === 1 ? 'dia restante' : 'dias restantes'}`}
                             </p>
                           )}
                         </div>
