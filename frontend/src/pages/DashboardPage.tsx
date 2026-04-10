@@ -26,6 +26,11 @@ export default function DashboardPage() {
     enabled: startMonth <= endMonth,
   })
 
+  const { data: occupancyOverview, isLoading: isOccupancyLoading } = useQuery({
+    queryKey: ['dashboard', 'occupancyOverview'],
+    queryFn: () => dashboardApi.overview(),
+  })
+
   const { data: barData } = useQuery({
     queryKey: ['dashboard', 'chartBar', selectedProperty, startMonth, endMonth],
     queryFn: () => dashboardApi.chartBar(
@@ -77,6 +82,11 @@ export default function DashboardPage() {
       total_bookings: totalBookings,
     }
   }, [filteredProperties])
+
+  const occupancyProperties = useMemo(
+    () => occupancyOverview?.properties ?? [],
+    [occupancyOverview?.properties]
+  )
 
   const pieChartColors = useMemo(() => {
     const rawColors = pieData?.datasets[0]?.backgroundColor ?? []
@@ -172,9 +182,11 @@ export default function DashboardPage() {
           <h2 className="text-base font-medium text-slate-900">Ocupação Atual por Imóvel</h2>
         </CardHeader>
         <CardContent>
-          {filteredProperties.length > 0 ? (
+          {isOccupancyLoading ? (
+            <div className="py-8 text-center text-slate-500">Carregando ocupação atual...</div>
+          ) : occupancyProperties.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {filteredProperties.map((property) => {
+              {occupancyProperties.map((property) => {
                 const stayLabel = property.occupied_today ? 'Ocupado hoje' : 'Livre hoje'
                 const guestName = property.occupied_today ? property.current_guest_name : property.last_guest_name
                 const periodText = property.occupied_today
