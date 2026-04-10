@@ -4,6 +4,7 @@ import Layout from '@/components/layout/Layout'
 import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
 import PropertiesPage from '@/pages/PropertiesPage'
+import PropertyCalendarPage from '@/pages/PropertyCalendarPage'
 import RevenuesPage from '@/pages/RevenuesPage'
 import ExpensesPage from '@/pages/ExpensesPage'
 import CategoriesPage from '@/pages/CategoriesPage'
@@ -33,6 +34,14 @@ export default function AppRouter() {
         element={
           <ProtectedRoute>
             <PropertiesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/properties/:propertyId/calendar"
+        element={
+          <ProtectedRoute>
+            <PropertyCalendarPage />
           </ProtectedRoute>
         }
       />

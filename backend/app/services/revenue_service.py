@@ -1,6 +1,6 @@
 import uuid
 from datetime import date
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.models import RentalRevenue
@@ -168,3 +168,44 @@ class RevenueService:
             "total_cleaning": float(row.total_cleaning or 0),
             "total_platform_fee": float(row.total_platform_fee or 0),
         }
+
+    async def get_calendar_reservations(
+        self,
+        user_id: uuid.UUID | None,
+        property_id: uuid.UUID,
+        start_date: date,
+        end_date: date,
+    ) -> list[RentalRevenue]:
+        query = (
+            select(RentalRevenue)
+            .options(selectinload(RentalRevenue.property))
+            .where(RentalRevenue.property_id == property_id)
+        )
+
+        if user_id is not None:
+            query = query.where(RentalRevenue.user_id == user_id)
+
+        query = query.where(
+            or_(
+                and_(
+                    RentalRevenue.checkin_date.is_not(None),
+                    RentalRevenue.checkout_date.is_not(None),
+                    RentalRevenue.checkout_date >= start_date,
+                    RentalRevenue.checkin_date <= end_date,
+                ),
+                and_(
+                    RentalRevenue.checkin_date.is_(None),
+                    RentalRevenue.checkout_date.is_(None),
+                    RentalRevenue.date >= start_date,
+                    RentalRevenue.date <= end_date,
+                ),
+            )
+        )
+
+        query = query.order_by(
+            func.coalesce(RentalRevenue.checkin_date, RentalRevenue.date).asc(),
+            RentalRevenue.checkout_date.asc(),
+            RentalRevenue.date.asc(),
+        )
+        result = await self.db.execute(query)
+        return list(result.scalars().all())

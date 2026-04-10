@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { dashboardApi } from '@/api/dashboard'
 import PageContainer from '@/components/layout/PageContainer'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { formatMoney, currentYearMonth, formatDate } from '@/lib/utils'
-import { TrendingUp, TrendingDown, Home, Moon, Calendar, PieChart as PieChartIcon } from 'lucide-react'
+import { TrendingUp, TrendingDown, Home, Moon, Calendar, PieChart as PieChartIcon, CalendarDays } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend } from 'recharts'
 import { useState, useMemo } from 'react'
 
@@ -242,6 +243,16 @@ export default function DashboardPage() {
                         >
                           {property.occupied_today ? 'Hospedado' : 'Disponível'}
                         </span>
+                      </div>
+
+                      <div className="mb-3">
+                        <Link
+                          to={`/properties/${property.id}/calendar`}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                        >
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          Ver calendário
+                        </Link>
                       </div>
 
                       {guestName ? (

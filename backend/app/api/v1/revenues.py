@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
@@ -122,6 +123,23 @@ async def get_revenue_summary(
     scope_user_id = None if current_user.is_superuser else current_user.id
     summary = await service.get_summary(scope_user_id, property_id, year_month)
     return ResponseWrapper(data=summary)
+
+
+@router.get("/calendar", response_model=ResponseWrapper[list[RevenueResponse]])
+async def get_revenue_calendar(
+    property_id: uuid.UUID = Query(...),
+    start_date: date = Query(...),
+    end_date: date = Query(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if start_date > end_date:
+        raise HTTPException(status_code=400, detail="start_date must be less than or equal to end_date")
+
+    service = RevenueService(db)
+    scope_user_id = None if current_user.is_superuser else current_user.id
+    revenues = await service.get_calendar_reservations(scope_user_id, property_id, start_date, end_date)
+    return ResponseWrapper(data=[serialize_revenue(revenue) for revenue in revenues])
 
 
 @router.get("/{revenue_id}", response_model=ResponseWrapper[RevenueResponse])

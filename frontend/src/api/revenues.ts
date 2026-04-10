@@ -16,6 +16,15 @@ export const revenuesApi = {
     return { data: response.data.data, meta: response.data.meta }
   },
 
+  calendar: async (params: {
+    property_id: string
+    start_date: string
+    end_date: string
+  }): Promise<Revenue[]> => {
+    const response = await apiClient.get<ApiResponse<Revenue[]>>('/revenues/calendar', { params })
+    return response.data.data
+  },
+
   get: async (id: string): Promise<Revenue> => {
     const response = await apiClient.get<{ data: Revenue }>(`/revenues/${id}`)
     return response.data.data

@@ -4,7 +4,10 @@ from types import SimpleNamespace
 import uuid
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.database import Base
+from app.models import Property, RentalRevenue, User
 from app.services.revenue_service import RevenueService
 
 
@@ -153,3 +156,76 @@ async def test_update_revenue_updates_pending_amount():
     )
 
     assert float(updated.pending_amount) == 320.0
+
+
+@pytest.mark.asyncio
+async def test_get_calendar_reservations_filters_by_stay_overlap():
+    engine = create_async_engine("sqlite+aiosqlite:///./test_revenue_calendar.db", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as db_session:
+        user = User(
+            id=uuid.uuid4(),
+            email="calendar@test.com",
+            hashed_password="hashed",
+            full_name="Calendar Test",
+            is_active=True,
+            is_superuser=False,
+        )
+        property_item = Property(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            name="Calendario Teste",
+            property_value=Decimal("300000.00"),
+            monthly_depreciation_percent=Decimal("1.00"),
+            is_active=True,
+        )
+        overlapping_revenue = RentalRevenue(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            property_id=property_item.id,
+            year_month="2026-05",
+            date=date(2026, 4, 10),
+            checkin_date=date(2026, 4, 9),
+            checkout_date=date(2026, 4, 12),
+            guest_name="Hospede Dentro",
+            nights=3,
+            gross_amount=Decimal("800.00"),
+            cleaning_fee=Decimal("80.00"),
+            platform_fee=Decimal("20.00"),
+            net_amount=Decimal("700.00"),
+        )
+        outside_revenue = RentalRevenue(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            property_id=property_item.id,
+            year_month="2026-05",
+            date=date(2026, 4, 20),
+            checkin_date=date(2026, 4, 20),
+            checkout_date=date(2026, 4, 22),
+            guest_name="Hospede Fora",
+            nights=2,
+            gross_amount=Decimal("500.00"),
+            cleaning_fee=Decimal("50.00"),
+            platform_fee=Decimal("10.00"),
+            net_amount=Decimal("440.00"),
+        )
+
+        db_session.add_all([user, property_item, overlapping_revenue, outside_revenue])
+        await db_session.commit()
+
+        service = RevenueService(db_session)
+        reservations = await service.get_calendar_reservations(
+            user.id,
+            property_item.id,
+            date(2026, 4, 1),
+            date(2026, 4, 15),
+        )
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+
+    assert [reservation.guest_name for reservation in reservations] == ["Hospede Dentro"]
