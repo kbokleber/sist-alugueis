@@ -210,7 +210,7 @@ export default function DashboardPage() {
                 return (
                   <Card
                     key={property.id}
-                    className={property.occupied_today ? 'border-emerald-200 bg-emerald-50/60' : 'border-slate-200'}
+                    className={property.occupied_today ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200'}
                   >
                     <CardContent className="p-4">
                       <div className="mb-3 flex items-start justify-between gap-3">
