@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { dashboardApi } from '@/api/dashboard'
 import PageContainer from '@/components/layout/PageContainer'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
-import { formatMoney, currentYearMonth } from '@/lib/utils'
+import { formatMoney, currentYearMonth, formatDate } from '@/lib/utils'
 import { TrendingUp, TrendingDown, Home, Moon, Calendar, PieChart as PieChartIcon } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePie, Pie, Cell, Legend } from 'recharts'
 import { useState, useMemo } from 'react'
@@ -159,8 +159,74 @@ export default function DashboardPage() {
     },
   ]
 
+  const getReservationPeriod = (checkinDate?: string | null, checkoutDate?: string | null) => {
+    if (!checkinDate && !checkoutDate) return 'Datas não informadas'
+    if (checkinDate && checkoutDate) return `${formatDate(checkinDate)} a ${formatDate(checkoutDate)}`
+    return formatDate(checkinDate || checkoutDate || '')
+  }
+
   return (
     <PageContainer title="Dashboard">
+      <Card className="mb-6">
+        <CardHeader>
+          <h2 className="text-base font-medium text-slate-900">Ocupação Atual por Imóvel</h2>
+        </CardHeader>
+        <CardContent>
+          {filteredProperties.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {filteredProperties.map((property) => {
+                const stayLabel = property.occupied_today ? 'Ocupado hoje' : 'Livre hoje'
+                const guestName = property.occupied_today ? property.current_guest_name : property.last_guest_name
+                const periodText = property.occupied_today
+                  ? getReservationPeriod(property.current_checkin_date, property.current_checkout_date)
+                  : getReservationPeriod(property.last_checkin_date, property.last_checkout_date)
+
+                return (
+                  <Card
+                    key={property.id}
+                    className={property.occupied_today ? 'border-emerald-200 bg-emerald-50/60' : 'border-slate-200'}
+                  >
+                    <CardContent className="p-4">
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-slate-900">{property.name}</p>
+                          <p className="mt-1 text-sm text-slate-500">{stayLabel}</p>
+                        </div>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                            property.occupied_today
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {property.occupied_today ? 'Hospedado' : 'Disponível'}
+                        </span>
+                      </div>
+
+                      {guestName ? (
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-slate-800">
+                            {property.occupied_today ? guestName : `Última reserva: ${guestName}`}
+                          </p>
+                          <p className="text-sm text-slate-600">{periodText}</p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500">Nenhuma reserva encontrada para este imóvel.</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="py-8 text-center text-slate-500">
+              <p className="font-medium">Nenhum imóvel para exibir</p>
+              <p className="text-sm mt-1">Cadastre um imóvel para acompanhar a ocupação atual.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Filters */}
       <Card className="mb-6">
         <CardContent className="p-4">

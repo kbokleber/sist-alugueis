@@ -68,9 +68,50 @@ class DashboardService:
 
         return f"{start_year}-{start_mon:02d}", f"{end_year}-{end_month:02d}"
 
+    @staticmethod
+    def _build_reservation_snapshot(revenue: RentalRevenue | None, *, occupied_today: bool) -> dict:
+        if revenue is None:
+            return {
+                "occupied_today": occupied_today,
+                "current_guest_name": None,
+                "current_checkin_date": None,
+                "current_checkout_date": None,
+                "last_guest_name": None,
+                "last_checkin_date": None,
+                "last_checkout_date": None,
+            }
+
+        snapshot = {
+            "guest_name": revenue.guest_name,
+            "checkin_date": revenue.checkin_date,
+            "checkout_date": revenue.checkout_date,
+        }
+
+        if occupied_today:
+            return {
+                "occupied_today": True,
+                "current_guest_name": snapshot["guest_name"],
+                "current_checkin_date": snapshot["checkin_date"],
+                "current_checkout_date": snapshot["checkout_date"],
+                "last_guest_name": snapshot["guest_name"],
+                "last_checkin_date": snapshot["checkin_date"],
+                "last_checkout_date": snapshot["checkout_date"],
+            }
+
+        return {
+            "occupied_today": False,
+            "current_guest_name": None,
+            "current_checkin_date": None,
+            "current_checkout_date": None,
+            "last_guest_name": snapshot["guest_name"],
+            "last_checkin_date": snapshot["checkin_date"],
+            "last_checkout_date": snapshot["checkout_date"],
+        }
+
     async def get_overview(
         self, user_id: uuid.UUID | None, start_month: str | None = None, end_month: str | None = None
     ) -> dict:
+        today = date.today()
         # Get all properties
         props_query = select(Property).where(Property.is_active == True)
         if user_id is not None:
@@ -118,6 +159,41 @@ class DashboardService:
             prop_nights = rev_data.nights or 0
             prop_bookings = rev_data.bookings or 0
 
+            current_stay_query = (
+                select(RentalRevenue)
+                .where(
+                    RentalRevenue.property_id == prop.id,
+                    RentalRevenue.checkin_date.is_not(None),
+                    RentalRevenue.checkout_date.is_not(None),
+                    RentalRevenue.checkin_date <= today,
+                    RentalRevenue.checkout_date >= today,
+                )
+                .order_by(RentalRevenue.checkin_date.desc(), RentalRevenue.date.desc())
+                .limit(1)
+            )
+            last_reservation_query = (
+                select(RentalRevenue)
+                .where(RentalRevenue.property_id == prop.id)
+                .order_by(
+                    func.coalesce(RentalRevenue.checkin_date, RentalRevenue.date).desc(),
+                    RentalRevenue.date.desc(),
+                )
+                .limit(1)
+            )
+            if user_id is not None:
+                current_stay_query = current_stay_query.where(RentalRevenue.user_id == user_id)
+                last_reservation_query = last_reservation_query.where(RentalRevenue.user_id == user_id)
+
+            current_stay_result = await self.db.execute(current_stay_query)
+            current_stay = current_stay_result.scalar_one_or_none()
+
+            if current_stay is not None:
+                reservation_snapshot = self._build_reservation_snapshot(current_stay, occupied_today=True)
+            else:
+                last_reservation_result = await self.db.execute(last_reservation_query)
+                last_reservation = last_reservation_result.scalar_one_or_none()
+                reservation_snapshot = self._build_reservation_snapshot(last_reservation, occupied_today=False)
+
             total_revenue += rev_total
             total_expenses += exp_total
             total_pending_receivables += pending_total
@@ -135,6 +211,7 @@ class DashboardService:
                 "pending_receivables": pending_total,
                 "total_nights": prop_nights,
                 "total_bookings": prop_bookings,
+                **reservation_snapshot,
             })
 
         total_net_result = sum(p["net_result"] for p in property_summaries)

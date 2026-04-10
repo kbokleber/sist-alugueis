@@ -17,6 +17,15 @@ export interface DashboardOverview {
     total_expenses: number
     net_result: number
     pending_receivables: number
+    total_nights: number
+    total_bookings: number
+    occupied_today: boolean
+    current_guest_name: string | null
+    current_checkin_date: string | null
+    current_checkout_date: string | null
+    last_guest_name: string | null
+    last_checkin_date: string | null
+    last_checkout_date: string | null
   }>
 }
 

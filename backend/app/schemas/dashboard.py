@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from pydantic import BaseModel, ConfigDict
 
 
@@ -54,6 +55,13 @@ class PropertySummaryItem(BaseModel):
     pending_receivables: float
     total_nights: int
     total_bookings: int
+    occupied_today: bool
+    current_guest_name: str | None = None
+    current_checkin_date: date | None = None
+    current_checkout_date: date | None = None
+    last_guest_name: str | None = None
+    last_checkin_date: date | None = None
+    last_checkout_date: date | None = None
 
 
 class ChartBarData(BaseModel):
