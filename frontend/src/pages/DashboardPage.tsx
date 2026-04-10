@@ -175,6 +175,17 @@ export default function DashboardPage() {
     return formatDate(checkinDate || checkoutDate || '')
   }
 
+  const getOccupiedDays = (checkinDate?: string | null, checkoutDate?: string | null) => {
+    if (!checkinDate || !checkoutDate) return null
+
+    const checkin = new Date(`${checkinDate}T00:00:00`)
+    const checkout = new Date(`${checkoutDate}T00:00:00`)
+    const diffInMs = checkout.getTime() - checkin.getTime()
+    const diffInDays = Math.round(diffInMs / (1000 * 60 * 60 * 24))
+
+    return diffInDays > 0 ? diffInDays : null
+  }
+
   return (
     <PageContainer title="Dashboard">
       <Card className="mb-6">
@@ -189,6 +200,9 @@ export default function DashboardPage() {
               {occupancyProperties.map((property) => {
                 const stayLabel = property.occupied_today ? 'Ocupado hoje' : 'Livre hoje'
                 const guestName = property.occupied_today ? property.current_guest_name : property.last_guest_name
+                const occupiedDays = property.occupied_today
+                  ? getOccupiedDays(property.current_checkin_date, property.current_checkout_date)
+                  : getOccupiedDays(property.last_checkin_date, property.last_checkout_date)
                 const periodText = property.occupied_today
                   ? getReservationPeriod(property.current_checkin_date, property.current_checkout_date)
                   : getReservationPeriod(property.last_checkin_date, property.last_checkout_date)
@@ -221,6 +235,11 @@ export default function DashboardPage() {
                             {property.occupied_today ? guestName : `Última reserva: ${guestName}`}
                           </p>
                           <p className="text-sm text-slate-600">{periodText}</p>
+                          {occupiedDays !== null && (
+                            <p className="text-sm text-slate-600">
+                              {occupiedDays} {occupiedDays === 1 ? 'dia' : 'dias'}
+                            </p>
+                          )}
                         </div>
                       ) : (
                         <p className="text-sm text-slate-500">Nenhuma reserva encontrada para este imóvel.</p>

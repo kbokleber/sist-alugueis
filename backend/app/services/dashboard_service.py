@@ -76,15 +76,18 @@ class DashboardService:
                 "current_guest_name": None,
                 "current_checkin_date": None,
                 "current_checkout_date": None,
+                "current_nights": None,
                 "last_guest_name": None,
                 "last_checkin_date": None,
                 "last_checkout_date": None,
+                "last_nights": None,
             }
 
         snapshot = {
             "guest_name": revenue.guest_name,
             "checkin_date": revenue.checkin_date,
             "checkout_date": revenue.checkout_date,
+            "nights": revenue.nights,
         }
 
         if occupied_today:
@@ -93,9 +96,11 @@ class DashboardService:
                 "current_guest_name": snapshot["guest_name"],
                 "current_checkin_date": snapshot["checkin_date"],
                 "current_checkout_date": snapshot["checkout_date"],
+                "current_nights": snapshot["nights"],
                 "last_guest_name": snapshot["guest_name"],
                 "last_checkin_date": snapshot["checkin_date"],
                 "last_checkout_date": snapshot["checkout_date"],
+                "last_nights": snapshot["nights"],
             }
 
         return {
@@ -103,9 +108,11 @@ class DashboardService:
             "current_guest_name": None,
             "current_checkin_date": None,
             "current_checkout_date": None,
+            "current_nights": None,
             "last_guest_name": snapshot["guest_name"],
             "last_checkin_date": snapshot["checkin_date"],
             "last_checkout_date": snapshot["checkout_date"],
+            "last_nights": snapshot["nights"],
         }
 
     async def get_overview(

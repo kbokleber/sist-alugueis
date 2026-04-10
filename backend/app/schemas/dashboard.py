@@ -59,9 +59,11 @@ class PropertySummaryItem(BaseModel):
     current_guest_name: str | None = None
     current_checkin_date: date | None = None
     current_checkout_date: date | None = None
+    current_nights: int | None = None
     last_guest_name: str | None = None
     last_checkin_date: date | None = None
     last_checkout_date: date | None = None
+    last_nights: int | None = None
 
 
 class ChartBarData(BaseModel):

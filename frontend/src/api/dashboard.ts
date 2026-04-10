@@ -23,9 +23,11 @@ export interface DashboardOverview {
     current_guest_name: string | null
     current_checkin_date: string | null
     current_checkout_date: string | null
+    current_nights: number | null
     last_guest_name: string | null
     last_checkin_date: string | null
     last_checkout_date: string | null
+    last_nights: number | null
   }>
 }
 

@@ -67,6 +67,7 @@ async def test_get_overview_includes_pending_receivables():
     assert overview["properties"][0]["last_guest_name"] == "Hospede Teste"
     assert overview["properties"][0]["last_checkin_date"] is None
     assert overview["properties"][0]["last_checkout_date"] is None
+    assert overview["properties"][0]["last_nights"] == 4
 
 
 @pytest.mark.asyncio
@@ -210,10 +211,14 @@ async def test_get_overview_includes_current_occupancy_and_last_reservation():
     assert properties["Casa Ocupada"]["current_guest_name"] == "Hospede Atual"
     assert properties["Casa Ocupada"]["current_checkin_date"] == today - timedelta(days=1)
     assert properties["Casa Ocupada"]["current_checkout_date"] == today + timedelta(days=2)
+    assert properties["Casa Ocupada"]["current_nights"] == 3
     assert properties["Casa Ocupada"]["last_guest_name"] == "Hospede Atual"
+    assert properties["Casa Ocupada"]["last_nights"] == 3
 
     assert properties["Casa Livre"]["occupied_today"] is False
     assert properties["Casa Livre"]["current_guest_name"] is None
+    assert properties["Casa Livre"]["current_nights"] is None
     assert properties["Casa Livre"]["last_guest_name"] == "Hospede Anterior"
     assert properties["Casa Livre"]["last_checkin_date"] == today - timedelta(days=45)
     assert properties["Casa Livre"]["last_checkout_date"] == today - timedelta(days=40)
+    assert properties["Casa Livre"]["last_nights"] == 5
