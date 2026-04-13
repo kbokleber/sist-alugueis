@@ -54,7 +54,10 @@ class PropertyExpense(Base):
         Enum(ExpenseStatus), default=ExpenseStatus.PENDING
     )
     source: Mapped[ExpenseSource] = mapped_column(
-        Enum(ExpenseSource), default=ExpenseSource.MANUAL, nullable=False, index=True
+        Enum(ExpenseSource, native_enum=False, length=20),
+        default=ExpenseSource.MANUAL,
+        nullable=False,
+        index=True,
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

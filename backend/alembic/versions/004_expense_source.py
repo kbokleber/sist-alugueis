@@ -15,21 +15,18 @@ branch_labels = None
 depends_on = None
 
 
-expense_source_enum = sa.Enum("MANUAL", "SCRIPT", name="expensesource")
-
-
 def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
     columns = {column["name"] for column in inspector.get_columns("property_expenses")}
     indexes = {index["name"] for index in inspector.get_indexes("property_expenses")}
-    expense_source_enum.create(bind, checkfirst=True)
+    # VARCHAR avoids PostgreSQL native ENUM + server_default quirks during deploy.
     if "source" not in columns:
         op.add_column(
             "property_expenses",
             sa.Column(
                 "source",
-                expense_source_enum,
+                sa.String(20),
                 nullable=False,
                 server_default="MANUAL",
             ),
@@ -47,4 +44,3 @@ def downgrade() -> None:
         op.drop_index("ix_property_expenses_source", table_name="property_expenses")
     if "source" in columns:
         op.drop_column("property_expenses", "source")
-    expense_source_enum.drop(bind, checkfirst=True)
