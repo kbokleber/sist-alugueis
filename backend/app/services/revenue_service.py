@@ -56,40 +56,61 @@ class RevenueService:
         external_id: str | None = None,
         skip: int = 0,
         limit: int = 100,
-    ) -> tuple[list[RentalRevenue], int]:
+    ) -> tuple[list[RentalRevenue], int, dict]:
         query = select(RentalRevenue).options(selectinload(RentalRevenue.property))
         count_query = select(func.count(RentalRevenue.id))
+        totals_query = select(
+            func.coalesce(func.sum(RentalRevenue.gross_amount), 0).label("total_gross"),
+            func.coalesce(func.sum(RentalRevenue.net_amount), 0).label("total_net"),
+            func.coalesce(func.sum(RentalRevenue.pending_amount), 0).label("total_pending"),
+        )
 
         if user_id is not None:
             query = query.where(RentalRevenue.user_id == user_id)
             count_query = count_query.where(RentalRevenue.user_id == user_id)
+            totals_query = totals_query.where(RentalRevenue.user_id == user_id)
 
         if property_id:
             query = query.where(RentalRevenue.property_id == property_id)
             count_query = count_query.where(RentalRevenue.property_id == property_id)
+            totals_query = totals_query.where(RentalRevenue.property_id == property_id)
         if year_month:
             query = query.where(RentalRevenue.year_month == year_month)
             count_query = count_query.where(RentalRevenue.year_month == year_month)
+            totals_query = totals_query.where(RentalRevenue.year_month == year_month)
         if start_month:
             query = query.where(RentalRevenue.year_month >= start_month)
             count_query = count_query.where(RentalRevenue.year_month >= start_month)
+            totals_query = totals_query.where(RentalRevenue.year_month >= start_month)
         if end_month:
             query = query.where(RentalRevenue.year_month <= end_month)
             count_query = count_query.where(RentalRevenue.year_month <= end_month)
+            totals_query = totals_query.where(RentalRevenue.year_month <= end_month)
         if listing_source:
             query = query.where(RentalRevenue.listing_source == listing_source)
             count_query = count_query.where(RentalRevenue.listing_source == listing_source)
+            totals_query = totals_query.where(RentalRevenue.listing_source == listing_source)
         if external_id:
             external_id_term = f"%{external_id.strip()}%"
             query = query.where(RentalRevenue.external_id.ilike(external_id_term))
             count_query = count_query.where(RentalRevenue.external_id.ilike(external_id_term))
+            totals_query = totals_query.where(RentalRevenue.external_id.ilike(external_id_term))
 
         total_result = await self.db.execute(count_query)
         total = total_result.scalar() or 0
 
+        totals_result = await self.db.execute(totals_query)
+        totals_row = totals_result.one()
+        totals = {
+            "total_gross": float(totals_row.total_gross or 0),
+            "total_net": float(totals_row.total_net or 0),
+            "total_pending": float(totals_row.total_pending or 0),
+            "total_net_after_pending": float(totals_row.total_net or 0) - float(totals_row.total_pending or 0),
+        }
+
         query = query.order_by(RentalRevenue.date.desc()).offset(skip).limit(limit)
         result = await self.db.execute(query)
-        return list(result.scalars().all()), total
+        return list(result.scalars().all()), total, totals
 
     async def create(self, user_id: uuid.UUID, data: dict) -> RentalRevenue:
         reference_date = self._get_reference_date(data.get("checkin_date"), data.get("date"))

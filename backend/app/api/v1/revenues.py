@@ -64,7 +64,7 @@ async def list_revenues(
     service = RevenueService(db)
     scope_user_id = None if current_user.is_superuser else current_user.id
     skip = (page - 1) * per_page
-    revenues, total = await service.get_all(
+    revenues, total, totals = await service.get_all(
         user_id=scope_user_id,
         property_id=property_id,
         year_month=year_month,
@@ -83,6 +83,7 @@ async def list_revenues(
             "page": page,
             "per_page": per_page,
             "total_pages": total_pages,
+            "totals": totals,
         },
     )
 

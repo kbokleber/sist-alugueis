@@ -6,6 +6,12 @@ export interface ApiResponse<T> {
     per_page: number
     total: number
     total_pages?: number
+    totals?: {
+      total_gross: number
+      total_net: number
+      total_pending: number
+      total_net_after_pending: number
+    }
   }
 }
 

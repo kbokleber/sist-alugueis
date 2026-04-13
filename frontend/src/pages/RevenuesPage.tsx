@@ -197,9 +197,12 @@ export default function RevenuesPage() {
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending
-  const totalGross = revenues.reduce((sum, r) => sum + r.gross_amount, 0)
-  const totalNet = revenues.reduce((sum, r) => sum + r.net_amount, 0)
-  const totalPending = revenues.reduce((sum, r) => sum + (r.pending_amount || 0), 0)
+  const summaryTotals = data?.meta?.totals
+  const totalGross = summaryTotals?.total_gross ?? revenues.reduce((sum, r) => sum + r.gross_amount, 0)
+  const totalPending = summaryTotals?.total_pending ?? revenues.reduce((sum, r) => sum + (r.pending_amount || 0), 0)
+  const totalNet =
+    summaryTotals?.total_net_after_pending ??
+    revenues.reduce((sum, r) => sum + (r.net_amount - (r.pending_amount || 0)), 0)
 
   useEffect(() => {
     if (editing) return
@@ -485,7 +488,7 @@ export default function RevenuesPage() {
                         {rev.pending_amount && rev.pending_amount > 0 ? formatMoney(rev.pending_amount) : '—'}
                       </td>
                       <td className="px-4 py-3 text-right font-medium text-slate-900">
-                        {formatMoney(rev.net_amount)}
+                        {formatMoney(rev.net_amount - (rev.pending_amount || 0))}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
