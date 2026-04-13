@@ -50,6 +50,10 @@ async def readiness_check():
 
 @app.on_event("startup")
 async def startup_event():
+    # Production: schema vem só do Alembic (docker entrypoint). Evita 4 workers do Gunicorn
+    # rodando create_all + ALTER em paralelo no Postgres (locks / startup lento → 504 no proxy).
+    if settings.is_production:
+        return
     await init_db()
     await ensure_property_code_column()
     await ensure_property_image_url_column()
