@@ -3,7 +3,7 @@ from datetime import datetime, date
 from typing import Optional
 import enum
 from pydantic import BaseModel, ConfigDict
-from app.models.property_expense import ExpenseStatus
+from app.models.property_expense import ExpenseStatus, ExpenseSource
 
 
 class ExpenseRecurrenceType(str, enum.Enum):
@@ -51,6 +51,7 @@ class ExpenseUpdate(BaseModel):
     due_date: Optional[date] = None
     paid_date: Optional[date] = None
     status: ExpenseStatus | None = None
+    source: ExpenseSource | None = None
     notes: Optional[str] = None
 
 
@@ -73,6 +74,7 @@ class ExpenseResponse(ExpenseBase):
     property_code: Optional[str] = None
     property_name: Optional[str] = None
     category_name: Optional[str] = None
+    source: ExpenseSource
     created_at: datetime
     updated_at: Optional[datetime] = None
 

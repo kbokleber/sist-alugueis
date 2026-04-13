@@ -13,6 +13,11 @@ class ExpenseStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
 
 
+class ExpenseSource(str, enum.Enum):
+    MANUAL = "MANUAL"
+    SCRIPT = "SCRIPT"
+
+
 class PropertyExpense(Base):
     __tablename__ = "property_expenses"
 
@@ -47,6 +52,9 @@ class PropertyExpense(Base):
     paid_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[ExpenseStatus] = mapped_column(
         Enum(ExpenseStatus), default=ExpenseStatus.PENDING
+    )
+    source: Mapped[ExpenseSource] = mapped_column(
+        Enum(ExpenseSource), default=ExpenseSource.MANUAL, nullable=False, index=True
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

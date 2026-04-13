@@ -19,6 +19,19 @@ import type { Expense } from '@/types/expense.types'
 export default function ExpensesPage() {
   const currentMonth = currentYearMonth()
   const formatCompetenceYearMonth = (value: string) => value.replace('-', '/')
+  const getNextYearMonthFromDate = (dateValue: string) => {
+    if (!dateValue) return ''
+    const [yearPart, monthPart] = dateValue.split('-')
+    const year = Number(yearPart)
+    const month = Number(monthPart)
+    if (!year || !month) return ''
+
+    const isDecember = month === 12
+    const nextYear = isDecember ? year + 1 : year
+    const nextMonth = isDecember ? 1 : month + 1
+
+    return `${nextYear}-${String(nextMonth).padStart(2, '0')}`
+  }
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([])
@@ -30,6 +43,7 @@ export default function ExpensesPage() {
   const [amount, setAmount] = useState('')
   const [yearMonth, setYearMonth] = useState('')
   const [dueDate, setDueDate] = useState('')
+  const [source, setSource] = useState<Expense['source']>('MANUAL')
   const [isRecurring, setIsRecurring] = useState(false)
   const [recurrenceType, setRecurrenceType] = useState<'MONTHLY' | 'ANNUAL'>('MONTHLY')
   const [recurrenceStartDate, setRecurrenceStartDate] = useState('')
@@ -144,6 +158,7 @@ export default function ExpensesPage() {
     setAmount('')
     setYearMonth('')
     setDueDate('')
+    setSource('MANUAL')
     setIsRecurring(false)
     setRecurrenceType('MONTHLY')
     setRecurrenceStartDate('')
@@ -160,6 +175,7 @@ export default function ExpensesPage() {
     setAmount(String(exp.amount))
     setYearMonth(exp.year_month)
     setDueDate(exp.due_date || '')
+    setSource(exp.source)
     setIsRecurring(false)
     setRecurrenceType('MONTHLY')
     setRecurrenceStartDate('')
@@ -183,9 +199,11 @@ export default function ExpensesPage() {
           ...baseData,
           year_month: yearMonth,
           due_date: dueDate || undefined,
+          source,
         },
       })
     } else {
+      const computedYearMonth = dueDate ? getNextYearMonthFromDate(dueDate) : yearMonth
       createMutation.mutate(
         isRecurring
           ? {
@@ -198,7 +216,7 @@ export default function ExpensesPage() {
             }
           : {
               ...baseData,
-              year_month: yearMonth,
+              year_month: computedYearMonth,
               due_date: dueDate || undefined,
             }
       )
@@ -224,6 +242,14 @@ export default function ExpensesPage() {
     setSelectedExpenseIds((current) => current.filter((id) => expenses.some((expense) => expense.id === id)))
   }, [expenses])
 
+  useEffect(() => {
+    if (editing || isRecurring || !dueDate) return
+    const computedYearMonth = getNextYearMonthFromDate(dueDate)
+    if (computedYearMonth && computedYearMonth !== yearMonth) {
+      setYearMonth(computedYearMonth)
+    }
+  }, [dueDate, editing, isRecurring, yearMonth])
+
   const statusBadge = (s: string) => {
     if (s === 'PAID') return <Badge variant="success">Pago</Badge>
     if (s === 'CANCELLED') return <Badge variant="danger">Cancelado</Badge>
@@ -232,6 +258,8 @@ export default function ExpensesPage() {
 
   const recurringBadge = (isRecurring: boolean) =>
     isRecurring ? <Badge variant="info">Recorrente</Badge> : <Badge variant="default">Avulsa</Badge>
+  const sourceBadge = (source: Expense['source']) =>
+    source === 'SCRIPT' ? <Badge variant="info">Script</Badge> : <Badge variant="default">Manual</Badge>
 
   const selectedRecurringSummary = useMemo(
     () => expenses.filter((expense) => selectedExpenseIds.includes(expense.id)),
@@ -438,6 +466,19 @@ export default function ExpensesPage() {
                 required
               />
               <Input label="Data de vencimento" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              {editing && (
+                <label className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-slate-700">Origem</span>
+                  <select
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    value={source}
+                    onChange={(e) => setSource(e.target.value as Expense['source'])}
+                  >
+                    <option value="MANUAL">Manual</option>
+                    <option value="SCRIPT">Script</option>
+                  </select>
+                </label>
+              )}
             </>
           ) : (
             <>
@@ -522,6 +563,7 @@ export default function ExpensesPage() {
                     <th className="px-4 py-3 font-medium">Categoria</th>
                     <th className="px-4 py-3 font-medium">Competência</th>
                     <th className="px-4 py-3 font-medium">Recorrência</th>
+                    <th className="px-4 py-3 font-medium">Origem</th>
                     <th className="px-4 py-3 font-medium">Vencimento</th>
                     <th className="px-4 py-3 font-medium text-right">Valor</th>
                     <th className="px-4 py-3 font-medium">Status</th>
@@ -530,7 +572,10 @@ export default function ExpensesPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {expenses.map((exp) => (
-                    <tr key={exp.id} className="hover:bg-slate-50">
+                    <tr
+                      key={exp.id}
+                      className={exp.source === 'SCRIPT' ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-slate-50'}
+                    >
                       <td className="px-4 py-3">
                         <input
                           type="checkbox"
@@ -549,6 +594,7 @@ export default function ExpensesPage() {
                       <td className="px-4 py-3 text-slate-600">{exp.category_name || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{formatCompetenceYearMonth(exp.year_month)}</td>
                       <td className="px-4 py-3">{recurringBadge(exp.is_recurring)}</td>
+                      <td className="px-4 py-3">{sourceBadge(exp.source)}</td>
                       <td className="px-4 py-3 text-slate-600">{exp.due_date || '—'}</td>
                       <td className="px-4 py-3 text-right text-red-600">{formatMoney(exp.amount)}</td>
                       <td className="px-4 py-3">{statusBadge(exp.status)}</td>

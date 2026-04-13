@@ -66,9 +66,10 @@ export default function DashboardPage() {
   const filteredOverview = useMemo(() => {
     const totalRevenue = filteredProperties.reduce((sum, property) => sum + property.total_revenue, 0)
     const totalExpenses = filteredProperties.reduce((sum, property) => sum + property.total_expenses, 0)
+    const totalScriptExpenses = filteredProperties.reduce((sum, property) => sum + property.script_expenses, 0)
     const totalPendingReceivables = filteredProperties.reduce((sum, property) => sum + property.pending_receivables, 0)
-    const totalReceivedRevenue = totalRevenue - totalPendingReceivables
-    const totalNetResult = totalReceivedRevenue - totalExpenses
+    const totalReceivedRevenue = totalRevenue - totalPendingReceivables - totalScriptExpenses
+    const totalNetResult = totalRevenue - totalPendingReceivables - totalExpenses
     const totalNights = filteredProperties.reduce((sum, property) => sum + (property.total_nights || 0), 0)
     const totalBookings = filteredProperties.reduce((sum, property) => sum + (property.total_bookings || 0), 0)
 
@@ -77,6 +78,7 @@ export default function DashboardPage() {
       total_revenue: totalRevenue,
       total_received_revenue: totalReceivedRevenue,
       total_expenses: totalExpenses,
+      total_script_expenses: totalScriptExpenses,
       total_net_result: totalNetResult,
       total_pending_receivables: totalPendingReceivables,
       total_nights: totalNights,

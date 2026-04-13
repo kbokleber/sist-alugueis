@@ -4,7 +4,7 @@ import uuid
 
 import pytest
 
-from app.models.property_expense import ExpenseStatus
+from app.models.property_expense import ExpenseStatus, ExpenseSource
 from app.services.expense_service import ExpenseService
 
 
@@ -42,7 +42,7 @@ def test_build_create_payloads_generates_monthly_pending_expenses():
         }
     )
 
-    assert [item["year_month"] for item in payloads] == ["2026-01", "2026-02", "2026-03"]
+    assert [item["year_month"] for item in payloads] == ["2026-02", "2026-03", "2026-04"]
     assert [item["due_date"] for item in payloads] == [
         date(2026, 1, 31),
         date(2026, 2, 28),
@@ -50,6 +50,7 @@ def test_build_create_payloads_generates_monthly_pending_expenses():
     ]
     assert all(item["name"] == "[Recorrente] Internet" for item in payloads)
     assert all(item["status"] == ExpenseStatus.PENDING for item in payloads)
+    assert all(item["source"] == ExpenseSource.MANUAL for item in payloads)
     assert all(item["paid_date"] is None for item in payloads)
 
 
@@ -69,7 +70,7 @@ def test_build_create_payloads_generates_annual_pending_expenses():
         date(2025, 2, 28),
         date(2026, 2, 28),
     ]
-    assert [item["year_month"] for item in payloads] == ["2024-02", "2025-02", "2026-02"]
+    assert [item["year_month"] for item in payloads] == ["2024-03", "2025-03", "2026-03"]
 
 
 def test_build_create_payloads_rejects_invalid_recurrence_range():
@@ -96,6 +97,8 @@ def test_build_create_payloads_accepts_optional_name_for_non_recurring():
     )
 
     assert payloads[0]["name"] == "Despesa"
+    assert payloads[0]["year_month"] == "2026-05"
+    assert payloads[0]["source"] == ExpenseSource.MANUAL
 
 
 def test_build_create_payloads_accepts_optional_name_for_recurring():

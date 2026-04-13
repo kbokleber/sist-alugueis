@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.database import AsyncSessionLocal
 from app.models import (
     User, Property, FinancialCategory, CategoryType,
-    RentalRevenue, PropertyExpense, ExpenseStatus
+    RentalRevenue, PropertyExpense, ExpenseStatus, ExpenseSource
 )
 from sqlalchemy import select
 
@@ -56,6 +56,28 @@ def parse_month_ref(value: str) -> str | None:
     if not value or value.strip() == "":
         return None
     return value.strip().replace("/", "-")
+
+
+def normalize_booking_code(value: str) -> str:
+    """Normalize booking code for consistent matching."""
+    return (value or "").strip().upper()
+
+
+def normalize_guest_name(value: str) -> str:
+    """Normalize guest name spacing."""
+    return " ".join((value or "").strip().split())
+
+
+def is_generic_guest_name(value: str) -> bool:
+    """Detect placeholder guest names."""
+    normalized = normalize_guest_name(value).casefold()
+    return (
+        not normalized
+        or normalized == "hóspede sem nome"
+        or normalized == "hospede sem nome"
+        or normalized.startswith("hospede ")
+        or normalized.startswith("hóspede ")
+    )
 
 
 async def get_admin_user(db) -> User:
@@ -200,6 +222,7 @@ async def import_revenues(db, admin_user_id: int, properties: dict) -> int:
 
     count = 0
     skipped = 0
+    updated = 0
     errors = 0
 
     with open(revenues_csv, "r", encoding="utf-8") as f:
@@ -217,14 +240,14 @@ async def import_revenues(db, admin_user_id: int, properties: dict) -> int:
                 data_saida = parse_brazilian_date(row[2])
                 mes_ref = parse_month_ref(row[3])
                 noites_str = row[4].strip()
-                hospede = row[5].strip()
+                hospede = normalize_guest_name(row[5])
                 anuncio = row[6].strip()
                 valor_cobrado = parse_brazilian_currency(row[7])
                 limpeza = parse_brazilian_currency(row[8])
                 taxa_adm = parse_brazilian_currency(row[9])
                 valor_liquido = parse_brazilian_currency(row[10])
                 api_airbnb = parse_brazilian_currency(row[11]) if len(row) > 11 else Decimal("0")
-                reserva = row[12].strip() if len(row) > 12 else ""
+                reserva = normalize_booking_code(row[12]) if len(row) > 12 else ""
 
                 if not noites_str:
                     noites = 0
@@ -264,7 +287,13 @@ async def import_revenues(db, admin_user_id: int, properties: dict) -> int:
                     )
                     existing = result.scalar_one_or_none()
                     if existing:
-                        skipped += 1
+                        has_real_name_from_file = bool(hospede) and not is_generic_guest_name(hospede)
+                        existing_is_generic = is_generic_guest_name(existing.guest_name)
+                        if has_real_name_from_file and existing_is_generic:
+                            existing.guest_name = hospede
+                            updated += 1
+                        else:
+                            skipped += 1
                         continue
 
                 rev = RentalRevenue(
@@ -298,7 +327,12 @@ async def import_revenues(db, admin_user_id: int, properties: dict) -> int:
                     print(f"  [error] Row {row_idx}: {e}")
 
     await db.commit()
-    print(f"  Done! Imported: {count}, Skipped (duplicates): {skipped}, Errors: {errors}")
+    if updated:
+        await db.commit()
+    print(
+        f"  Done! Imported: {count}, Updated guests: {updated}, "
+        f"Skipped (duplicates): {skipped}, Errors: {errors}"
+    )
     return count
 
 
@@ -413,6 +447,7 @@ async def import_expenses(db, admin_user_id: int, properties: dict, categories: 
                     amount=float(valor_despesa),
                     is_reserve=is_reserve,
                     status=ExpenseStatus.PAID if not is_reserve else ExpenseStatus.PENDING,
+                    source=ExpenseSource.SCRIPT,
                     notes=f"Importado de planilha (reserva: {reserva})" if reserva else "Importado de planilha",
                 )
                 db.add(expense)

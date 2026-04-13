@@ -14,6 +14,7 @@ export interface Expense {
   due_date: string | null
   paid_date: string | null
   status: 'PENDING' | 'PAID' | 'CANCELLED'
+  source: 'MANUAL' | 'SCRIPT'
   notes: string | null
   created_at: string
   updated_at: string | null
@@ -29,6 +30,7 @@ export interface CreateExpenseRequest {
   due_date?: string
   paid_date?: string
   status?: 'PENDING' | 'PAID' | 'CANCELLED'
+  source?: 'MANUAL' | 'SCRIPT'
   notes?: string
   is_recurring?: boolean
   recurrence_type?: 'MONTHLY' | 'ANNUAL'

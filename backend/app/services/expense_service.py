@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.models import PropertyExpense, FinancialCategory
 from app.models.property_expense import ExpenseStatus
+from app.models.property_expense import ExpenseSource
 
 
 class ExpenseService:
@@ -43,6 +44,11 @@ class ExpenseService:
         return date(year, month, day)
 
     @classmethod
+    def _next_year_month_from_date(cls, source_date: date) -> str:
+        next_date = cls._shift_date(source_date, 1)
+        return next_date.strftime("%Y-%m")
+
+    @classmethod
     def _generate_occurrence_dates(
         cls,
         recurrence_type: str,
@@ -72,6 +78,7 @@ class ExpenseService:
         recurrence_start_date = payload.pop("recurrence_start_date", None)
         recurrence_end_date = payload.pop("recurrence_end_date", None)
         payload["name"] = cls._normalize_name(payload.get("name"), is_recurring)
+        payload.setdefault("source", ExpenseSource.MANUAL)
 
         if is_recurring:
             if recurrence_type not in {"MONTHLY", "ANNUAL"}:
@@ -88,18 +95,18 @@ class ExpenseService:
             payloads: list[dict] = []
             for occurrence_date in occurrence_dates:
                 item = dict(payload)
-                item["year_month"] = occurrence_date.strftime("%Y-%m")
+                item["year_month"] = cls._next_year_month_from_date(occurrence_date)
                 item["due_date"] = occurrence_date
                 item["status"] = ExpenseStatus.PENDING
                 item["paid_date"] = None
                 payloads.append(item)
             return payloads
 
-        if payload.get("year_month") is None:
-            due_date = payload.get("due_date")
-            if due_date is None:
-                raise ValueError("year_month is required for non-recurring expenses")
-            payload["year_month"] = due_date.strftime("%Y-%m")
+        due_date = payload.get("due_date")
+        if due_date is not None:
+            payload["year_month"] = cls._next_year_month_from_date(due_date)
+        elif payload.get("year_month") is None:
+            raise ValueError("year_month is required for non-recurring expenses")
 
         return [payload]
 

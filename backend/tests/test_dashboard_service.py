@@ -6,7 +6,16 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.database import Base
-from app.models import Property, RentalRevenue, User
+from app.models import (
+    CategoryType,
+    ExpenseSource,
+    ExpenseStatus,
+    FinancialCategory,
+    Property,
+    PropertyExpense,
+    RentalRevenue,
+    User,
+)
 from app.services.dashboard_service import DashboardService
 
 
@@ -108,10 +117,44 @@ async def test_get_bar_chart_data_includes_pending_receivables_dataset():
             net_amount=Decimal("780.00"),
             pending_amount=Decimal("150.00"),
         )
+        category = FinancialCategory(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            name="Manutenção",
+            type=CategoryType.EXPENSE,
+            color="#ef4444",
+            icon="wrench",
+            is_system=True,
+        )
+        script_expense = PropertyExpense(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            property_id=property_item.id,
+            category_id=category.id,
+            year_month="2026-05",
+            name="Despesa script",
+            amount=Decimal("300.00"),
+            status=ExpenseStatus.PAID,
+            source=ExpenseSource.SCRIPT,
+        )
+        manual_expense = PropertyExpense(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            property_id=property_item.id,
+            category_id=category.id,
+            year_month="2026-05",
+            name="Despesa manual",
+            amount=Decimal("120.00"),
+            status=ExpenseStatus.PAID,
+            source=ExpenseSource.MANUAL,
+        )
 
         db_session.add(user)
         db_session.add(property_item)
         db_session.add(revenue)
+        db_session.add(category)
+        db_session.add(script_expense)
+        db_session.add(manual_expense)
         await db_session.commit()
 
         service = DashboardService(db_session)
@@ -127,6 +170,94 @@ async def test_get_bar_chart_data_includes_pending_receivables_dataset():
     assert chart_data["datasets"][1]["label"] == "Pendências"
     assert chart_data["datasets"][1]["data"] == [150.0]
     assert chart_data["datasets"][2]["label"] == "Despesas"
+    assert chart_data["datasets"][2]["data"] == [420.0]
+
+
+@pytest.mark.asyncio
+async def test_get_overview_counts_all_expenses_and_tracks_script_expenses():
+    engine = create_async_engine("sqlite+aiosqlite:///./test_dashboard_script_only.db", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as db_session:
+        user = User(
+            id=uuid.uuid4(),
+            email="dashboard-script@test.com",
+            hashed_password="hashed",
+            full_name="Dashboard Script Test",
+            is_active=True,
+            is_superuser=False,
+        )
+        property_item = Property(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            name="Casa Script",
+            property_value=Decimal("250000.00"),
+            monthly_depreciation_percent=Decimal("1.00"),
+            is_active=True,
+        )
+        category = FinancialCategory(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            name="Outros",
+            type=CategoryType.EXPENSE,
+            color="#ef4444",
+            icon="wallet",
+            is_system=True,
+        )
+        revenue = RentalRevenue(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            property_id=property_item.id,
+            year_month="2026-04",
+            date=date(2026, 4, 10),
+            guest_name="Hospede Script",
+            nights=2,
+            gross_amount=Decimal("600.00"),
+            cleaning_fee=Decimal("20.00"),
+            platform_fee=Decimal("10.00"),
+            net_amount=Decimal("570.00"),
+            pending_amount=Decimal("0.00"),
+        )
+        script_expense = PropertyExpense(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            property_id=property_item.id,
+            category_id=category.id,
+            year_month="2026-04",
+            name="Despesa script",
+            amount=Decimal("200.00"),
+            status=ExpenseStatus.PAID,
+            source=ExpenseSource.SCRIPT,
+        )
+        manual_expense = PropertyExpense(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            property_id=property_item.id,
+            category_id=category.id,
+            year_month="2026-04",
+            name="Despesa manual",
+            amount=Decimal("150.00"),
+            status=ExpenseStatus.PAID,
+            source=ExpenseSource.MANUAL,
+        )
+
+        db_session.add_all([user, property_item, category, revenue, script_expense, manual_expense])
+        await db_session.commit()
+
+        service = DashboardService(db_session)
+        overview = await service.get_overview(user.id, "2026-04", "2026-04")
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+
+    assert overview["total_expenses"] == 350.0
+    assert overview["total_script_expenses"] == 200.0
+    assert overview["properties"][0]["total_expenses"] == 350.0
+    assert overview["properties"][0]["script_expenses"] == 200.0
+    assert overview["total_net_result"] == 220.0
 
 
 @pytest.mark.asyncio

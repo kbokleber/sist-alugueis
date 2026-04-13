@@ -39,6 +39,7 @@ def serialize_expense(expense) -> ExpenseResponse:
             "due_date": expense.due_date,
             "paid_date": expense.paid_date,
             "status": expense.status,
+            "source": expense.source,
             "notes": expense.notes,
             "created_at": expense.created_at,
             "updated_at": expense.updated_at,

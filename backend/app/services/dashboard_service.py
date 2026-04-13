@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import Property, RentalRevenue, PropertyExpense, ExpenseStatus
+from app.models import Property, RentalRevenue, PropertyExpense, ExpenseStatus, ExpenseSource
 
 
 class DashboardService:
@@ -27,6 +27,10 @@ class DashboardService:
     @staticmethod
     def _exclude_cancelled_expenses(query):
         return query.where(PropertyExpense.status != ExpenseStatus.CANCELLED)
+
+    @staticmethod
+    def _only_script_expenses(query):
+        return query.where(PropertyExpense.source == ExpenseSource.SCRIPT)
 
     @staticmethod
     def _apply_month_range(query, model, start_month: str | None = None, end_month: str | None = None):
@@ -128,6 +132,7 @@ class DashboardService:
 
         total_revenue = 0.0
         total_expenses = 0.0
+        total_script_expenses = 0.0
         total_pending_receivables = 0.0
         total_nights = 0
         total_bookings = 0
@@ -146,16 +151,24 @@ class DashboardService:
                 func.coalesce(func.sum(PropertyExpense.amount), 0).label("exp"),
             ).where(PropertyExpense.property_id == prop.id)
             exp_query = self._exclude_cancelled_expenses(exp_query)
+            exp_script_query = select(
+                func.coalesce(func.sum(PropertyExpense.amount), 0).label("exp_script"),
+            ).where(PropertyExpense.property_id == prop.id)
+            exp_script_query = self._exclude_cancelled_expenses(exp_script_query)
+            exp_script_query = self._only_script_expenses(exp_script_query)
 
             if user_id is not None:
                 rev_query = rev_query.where(RentalRevenue.user_id == user_id)
                 exp_query = exp_query.where(PropertyExpense.user_id == user_id)
+                exp_script_query = exp_script_query.where(PropertyExpense.user_id == user_id)
 
             rev_query = self._apply_month_range(rev_query, RentalRevenue, start_month, end_month)
             exp_query = self._apply_month_range(exp_query, PropertyExpense, start_month, end_month)
+            exp_script_query = self._apply_month_range(exp_script_query, PropertyExpense, start_month, end_month)
 
             rev_res = await self.db.execute(rev_query)
             exp_res = await self.db.execute(exp_query)
+            exp_script_res = await self.db.execute(exp_script_query)
 
             rev_data = rev_res.one()
             exp_data = exp_res.one()
@@ -163,6 +176,7 @@ class DashboardService:
             rev_total = float(rev_data.rev or 0)
             pending_total = float(rev_data.pending or 0)
             exp_total = float(exp_data.exp or 0)
+            exp_script_total = float(exp_script_res.scalar() or 0)
             prop_nights = rev_data.nights or 0
             prop_bookings = rev_data.bookings or 0
 
@@ -203,6 +217,7 @@ class DashboardService:
 
             total_revenue += rev_total
             total_expenses += exp_total
+            total_script_expenses += exp_script_total
             total_pending_receivables += pending_total
             total_nights += prop_nights
             total_bookings += prop_bookings
@@ -214,6 +229,7 @@ class DashboardService:
                 "name": prop.name,
                 "total_revenue": rev_total,
                 "total_expenses": exp_total,
+                "script_expenses": exp_script_total,
                 "net_result": net_result,
                 "pending_receivables": pending_total,
                 "total_nights": prop_nights,
@@ -230,6 +246,7 @@ class DashboardService:
             "total_properties": len(properties),
             "total_revenue": total_revenue,
             "total_expenses": total_expenses,
+            "total_script_expenses": total_script_expenses,
             "total_net_result": total_net_result,
             "total_pending_receivables": total_pending_receivables,
             "total_nights": total_nights,

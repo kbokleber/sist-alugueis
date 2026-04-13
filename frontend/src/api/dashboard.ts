@@ -6,6 +6,7 @@ export interface DashboardOverview {
   total_properties: number
   total_revenue: number
   total_expenses: number
+  total_script_expenses: number
   total_net_result: number
   total_pending_receivables: number
   total_nights: number
@@ -15,6 +16,7 @@ export interface DashboardOverview {
     name: string
     total_revenue: number
     total_expenses: number
+    script_expenses: number
     net_result: number
     pending_receivables: number
     total_nights: number
