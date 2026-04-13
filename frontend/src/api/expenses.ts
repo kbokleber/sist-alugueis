@@ -10,6 +10,7 @@ export const expensesApi = {
     start_month?: string
     end_month?: string
     status?: string
+    source?: 'MANUAL' | 'SCRIPT'
     page?: number
     per_page?: number
   }): Promise<{ data: Expense[]; meta?: ApiResponse<Expense[]>['meta'] }> => {

@@ -133,6 +133,7 @@ class ExpenseService:
         start_month: str | None = None,
         end_month: str | None = None,
         status: str | None = None,
+        source: ExpenseSource | None = None,
         skip: int = 0,
         limit: int = 100,
     ) -> tuple[list[PropertyExpense], int]:
@@ -164,6 +165,9 @@ class ExpenseService:
         if status:
             query = query.where(PropertyExpense.status == status)
             count_query = count_query.where(PropertyExpense.status == status)
+        if source is not None:
+            query = query.where(PropertyExpense.source == source)
+            count_query = count_query.where(PropertyExpense.source == source)
 
         total_result = await self.db.execute(count_query)
         total = total_result.scalar() or 0

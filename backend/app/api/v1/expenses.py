@@ -16,6 +16,7 @@ from app.services.expense_service import ExpenseService
 from app.services.audit_service import AuditService
 from app.dependencies import get_current_user
 from app.models import User
+from app.models.property_expense import ExpenseSource
 
 router = APIRouter(prefix="/expenses", tags=["expenses"])
 
@@ -55,6 +56,7 @@ async def list_expenses(
     start_month: str | None = Query(None),
     end_month: str | None = Query(None),
     status_filter: str | None = Query(None, alias="status"),
+    source: ExpenseSource | None = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -71,6 +73,7 @@ async def list_expenses(
         start_month=start_month,
         end_month=end_month,
         status=status_filter,
+        source=source,
         skip=skip,
         limit=per_page,
     )

@@ -50,6 +50,7 @@ export default function ExpensesPage() {
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('')
   const [filterPropertyId, setFilterPropertyId] = useState('all')
   const [filterCategoryId, setFilterCategoryId] = useState('all')
+  const [filterSource, setFilterSource] = useState<'all' | Expense['source']>('all')
   const [filterStartMonth, setFilterStartMonth] = useState(currentMonth)
   const [filterEndMonth, setFilterEndMonth] = useState(currentMonth)
   const [page, setPage] = useState(1)
@@ -61,11 +62,12 @@ export default function ExpensesPage() {
     Boolean(filterStartMonth) && Boolean(filterEndMonth) && filterStartMonth > filterEndMonth
 
   const { data, isLoading: isExpensesLoading } = useQuery({
-    queryKey: ['expenses', userId, filterPropertyId, filterCategoryId, filterStartMonth, filterEndMonth, page],
+    queryKey: ['expenses', userId, filterPropertyId, filterCategoryId, filterSource, filterStartMonth, filterEndMonth, page],
     queryFn: () =>
       expensesApi.list({
         property_id: filterPropertyId !== 'all' ? filterPropertyId : undefined,
         category_id: filterCategoryId !== 'all' ? filterCategoryId : undefined,
+        source: filterSource !== 'all' ? filterSource : undefined,
         start_month: filterStartMonth || undefined,
         end_month: filterEndMonth || undefined,
         page,
@@ -236,7 +238,7 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     setSelectedExpenseIds([])
-  }, [filterPropertyId, filterCategoryId, filterStartMonth, filterEndMonth, page])
+  }, [filterPropertyId, filterCategoryId, filterSource, filterStartMonth, filterEndMonth, page])
 
   useEffect(() => {
     setSelectedExpenseIds((current) => current.filter((id) => expenses.some((expense) => expense.id === id)))
@@ -286,7 +288,7 @@ export default function ExpensesPage() {
     >
       <Card className="mb-6">
         <CardContent className="p-4">
-          <div className="grid gap-3 md:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <div className="space-y-1">
               <label className="text-sm font-medium text-slate-600">Competência inicial</label>
               <Input
@@ -341,6 +343,21 @@ export default function ExpensesPage() {
                   ))}
               </select>
             </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600">Origem</label>
+              <select
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                value={filterSource}
+                onChange={(e) => {
+                  setFilterSource(e.target.value as 'all' | Expense['source'])
+                  setPage(1)
+                }}
+              >
+                <option value="all">Todas</option>
+                <option value="MANUAL">Manual</option>
+                <option value="SCRIPT">Script</option>
+              </select>
+            </div>
             <div className="flex items-end">
               <Button
                 type="button"
@@ -348,6 +365,7 @@ export default function ExpensesPage() {
                 onClick={() => {
                   setFilterPropertyId('all')
                   setFilterCategoryId('all')
+                  setFilterSource('all')
                   setFilterStartMonth(currentYearMonth())
                   setFilterEndMonth(currentYearMonth())
                   setPage(1)
@@ -558,13 +576,12 @@ export default function ExpensesPage() {
                         className="h-4 w-4 rounded border-slate-300 text-primary-600"
                       />
                     </th>
-                    <th className="px-4 py-3 font-medium">Código do imóvel</th>
                     <th className="px-4 py-3 font-medium">Imóvel</th>
                     <th className="px-4 py-3 font-medium">Categoria</th>
                     <th className="px-4 py-3 font-medium">Competência</th>
                     <th className="px-4 py-3 font-medium">Recorrência</th>
                     <th className="px-4 py-3 font-medium">Origem</th>
-                    <th className="px-4 py-3 font-medium">Vencimento</th>
+                    <th className="px-4 py-3 font-medium">Descrição</th>
                     <th className="px-4 py-3 font-medium text-right">Valor</th>
                     <th className="px-4 py-3 font-medium">Status</th>
                     <th className="px-4 py-3"></th>
@@ -589,13 +606,17 @@ export default function ExpensesPage() {
                           className="h-4 w-4 rounded border-slate-300 text-primary-600"
                         />
                       </td>
-                      <td className="px-4 py-3 font-medium text-slate-900">{exp.property_code || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{exp.property_name || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{exp.category_name || '—'}</td>
                       <td className="px-4 py-3 text-slate-600">{formatCompetenceYearMonth(exp.year_month)}</td>
                       <td className="px-4 py-3">{recurringBadge(exp.is_recurring)}</td>
                       <td className="px-4 py-3">{sourceBadge(exp.source)}</td>
-                      <td className="px-4 py-3 text-slate-600">{exp.due_date || '—'}</td>
+                      <td
+                        className="px-4 py-3 text-slate-600 max-w-[14rem] truncate"
+                        title={exp.name}
+                      >
+                        {exp.name || '—'}
+                      </td>
                       <td className="px-4 py-3 text-right text-red-600">{formatMoney(exp.amount)}</td>
                       <td className="px-4 py-3">{statusBadge(exp.status)}</td>
                       <td className="px-4 py-3">
