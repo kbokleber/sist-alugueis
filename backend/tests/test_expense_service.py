@@ -5,6 +5,7 @@ import uuid
 import pytest
 
 from app.models.property_expense import ExpenseStatus, ExpenseSource
+from app.schemas.expense import ExpenseCreate
 from app.services.expense_service import ExpenseService
 
 
@@ -99,6 +100,34 @@ def test_build_create_payloads_accepts_optional_name_for_non_recurring():
     assert payloads[0]["name"] == "Despesa"
     assert payloads[0]["year_month"] == "2026-05"
     assert payloads[0]["source"] == ExpenseSource.MANUAL
+
+
+def test_build_create_payloads_preserves_script_source():
+    payloads = ExpenseService.build_create_payloads(
+        {
+            **build_base_payload(),
+            "year_month": "2026-04",
+            "source": ExpenseSource.SCRIPT,
+        }
+    )
+
+    assert len(payloads) == 1
+    assert payloads[0]["source"] == ExpenseSource.SCRIPT
+
+
+def test_expense_create_schema_accepts_source_string():
+    pid, cid = uuid.uuid4(), uuid.uuid4()
+    obj = ExpenseCreate.model_validate(
+        {
+            "property_id": str(pid),
+            "category_id": str(cid),
+            "name": "Débito import",
+            "amount": 10.0,
+            "year_month": "2026-04",
+            "source": "SCRIPT",
+        }
+    )
+    assert obj.source == ExpenseSource.SCRIPT
 
 
 def test_build_create_payloads_accepts_optional_name_for_recurring():

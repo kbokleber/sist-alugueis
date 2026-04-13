@@ -78,7 +78,8 @@ class ExpenseService:
         recurrence_start_date = payload.pop("recurrence_start_date", None)
         recurrence_end_date = payload.pop("recurrence_end_date", None)
         payload["name"] = cls._normalize_name(payload.get("name"), is_recurring)
-        payload.setdefault("source", ExpenseSource.MANUAL)
+        if payload.get("source") is None:
+            payload["source"] = ExpenseSource.MANUAL
 
         if is_recurring:
             if recurrence_type not in {"MONTHLY", "ANNUAL"}:

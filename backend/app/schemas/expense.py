@@ -34,6 +34,7 @@ class ExpenseCreate(BaseModel):
     due_date: Optional[date] = None
     paid_date: Optional[date] = None
     status: ExpenseStatus = ExpenseStatus.PENDING
+    source: ExpenseSource | None = None
     notes: Optional[str] = None
     is_recurring: bool = False
     recurrence_type: ExpenseRecurrenceType | None = None
