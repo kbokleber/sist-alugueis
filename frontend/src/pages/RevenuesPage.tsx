@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { revenuesApi } from '@/api/revenues'
 import { propertiesApi } from '@/api/properties'
@@ -11,8 +11,22 @@ import { FormModal } from '@/components/ui/FormModal'
 import { toast } from '@/stores/toastStore'
 import { useAuthStore } from '@/stores/authStore'
 import { currentYearMonth, formatDate, formatMoney } from '@/lib/utils'
-import { Plus, Pencil, Trash2, TrendingUp, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, TrendingUp, Loader2, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import type { Revenue } from '@/types/revenue.types'
+
+type RevenueSortField =
+  | 'external_id'
+  | 'property_name'
+  | 'date'
+  | 'year_month'
+  | 'nights'
+  | 'gross_amount'
+  | 'cleaning_fee'
+  | 'platform_fee'
+  | 'pending_amount'
+  | 'net_after_pending'
+
+type SortDirection = 'asc' | 'desc'
 
 const calculateGrossAmount = (netAmount: number, cleaningFee: number, platformFee: number) =>
   netAmount + cleaningFee + platformFee
@@ -58,6 +72,8 @@ export default function RevenuesPage() {
   const [filterEndMonth, setFilterEndMonth] = useState(currentMonth)
   const [filterExternalId, setFilterExternalId] = useState('')
   const [page, setPage] = useState(1)
+  const [sortField, setSortField] = useState<RevenueSortField>('year_month')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const perPage = 20
 
   const queryClient = useQueryClient()
@@ -203,6 +219,62 @@ export default function RevenuesPage() {
   const totalNet =
     summaryTotals?.total_net_after_pending ??
     revenues.reduce((sum, r) => sum + (r.net_amount - (r.pending_amount || 0)), 0)
+  const sortedRevenues = useMemo(() => {
+    const items = [...revenues]
+    items.sort((left, right) => {
+      const getValue = (revenue: Revenue) => {
+        switch (sortField) {
+          case 'external_id':
+            return revenue.external_id || ''
+          case 'property_name':
+            return revenue.property_name || ''
+          case 'date':
+            return revenue.date || ''
+          case 'year_month':
+            return revenue.year_month || ''
+          case 'nights':
+            return revenue.nights || 0
+          case 'gross_amount':
+            return revenue.gross_amount || 0
+          case 'cleaning_fee':
+            return revenue.cleaning_fee || 0
+          case 'platform_fee':
+            return revenue.platform_fee || 0
+          case 'pending_amount':
+            return revenue.pending_amount || 0
+          case 'net_after_pending':
+            return revenue.net_amount - (revenue.pending_amount || 0)
+          default:
+            return ''
+        }
+      }
+
+      const leftValue = getValue(left)
+      const rightValue = getValue(right)
+
+      if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+        return sortDirection === 'asc' ? leftValue - rightValue : rightValue - leftValue
+      }
+
+      const result = String(leftValue).localeCompare(String(rightValue), 'pt-BR', { sensitivity: 'base' })
+      return sortDirection === 'asc' ? result : -result
+    })
+    return items
+  }, [revenues, sortDirection, sortField])
+  const handleSort = (field: RevenueSortField) => {
+    if (sortField === field) {
+      setSortDirection((currentDirection) => (currentDirection === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortField(field)
+    setSortDirection('asc')
+  }
+  const sortIcon = (field: RevenueSortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-3.5 w-3.5 text-primary-600" />
+      : <ArrowDown className="h-3.5 w-3.5 text-primary-600" />
+  }
 
   useEffect(() => {
     if (editing) return
@@ -453,21 +525,71 @@ export default function RevenuesPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-slate-500">
-                    <th className="px-4 py-3 font-medium">Cód. Reserva</th>
-                    <th className="px-4 py-3 font-medium">Imóvel</th>
-                    <th className="px-4 py-3 font-medium">Lançamento</th>
-                    <th className="px-4 py-3 font-medium">Competência</th>
-                    <th className="px-4 py-3 font-medium text-right">Noites</th>
-                    <th className="px-4 py-3 font-medium text-right">Valor Bruto</th>
-                    <th className="px-4 py-3 font-medium text-right">Taxa de Limpeza</th>
-                    <th className="px-4 py-3 font-medium text-right">Taxa da Plataforma</th>
-                    <th className="px-4 py-3 font-medium text-right">Pendência</th>
-                    <th className="px-4 py-3 font-medium text-right">Valor Líquido</th>
+                    <th className="px-4 py-3 font-medium">
+                      <button type="button" className="inline-flex items-center gap-1" onClick={() => handleSort('external_id')}>
+                        Cód. Reserva
+                        {sortIcon('external_id')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      <button type="button" className="inline-flex items-center gap-1" onClick={() => handleSort('property_name')}>
+                        Imóvel
+                        {sortIcon('property_name')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      <button type="button" className="inline-flex items-center gap-1" onClick={() => handleSort('date')}>
+                        Lançamento
+                        {sortIcon('date')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      <button type="button" className="inline-flex items-center gap-1" onClick={() => handleSort('year_month')}>
+                        Competência
+                        {sortIcon('year_month')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium text-right">
+                      <button type="button" className="ml-auto inline-flex items-center gap-1" onClick={() => handleSort('nights')}>
+                        Noites
+                        {sortIcon('nights')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium text-right">
+                      <button type="button" className="ml-auto inline-flex items-center gap-1" onClick={() => handleSort('gross_amount')}>
+                        Valor Bruto
+                        {sortIcon('gross_amount')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium text-right">
+                      <button type="button" className="ml-auto inline-flex items-center gap-1" onClick={() => handleSort('cleaning_fee')}>
+                        Taxa de Limpeza
+                        {sortIcon('cleaning_fee')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium text-right">
+                      <button type="button" className="ml-auto inline-flex items-center gap-1" onClick={() => handleSort('platform_fee')}>
+                        Taxa da Plataforma
+                        {sortIcon('platform_fee')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium text-right">
+                      <button type="button" className="ml-auto inline-flex items-center gap-1" onClick={() => handleSort('pending_amount')}>
+                        Pendência
+                        {sortIcon('pending_amount')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium text-right">
+                      <button type="button" className="ml-auto inline-flex items-center gap-1" onClick={() => handleSort('net_after_pending')}>
+                        Valor Líquido
+                        {sortIcon('net_after_pending')}
+                      </button>
+                    </th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {revenues.map((rev) => (
+                  {sortedRevenues.map((rev) => (
                     <tr
                       key={rev.id}
                       className={

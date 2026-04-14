@@ -13,8 +13,20 @@ import { FormModal } from '@/components/ui/FormModal'
 import { toast } from '@/stores/toastStore'
 import { useAuthStore } from '@/stores/authStore'
 import { currentYearMonth, formatMoney } from '@/lib/utils'
-import { Plus, Pencil, Trash2, TrendingDown, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Pencil, Trash2, TrendingDown, Loader2, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import type { Expense } from '@/types/expense.types'
+
+type ExpenseSortField =
+  | 'property_name'
+  | 'category_name'
+  | 'year_month'
+  | 'is_recurring'
+  | 'source'
+  | 'name'
+  | 'amount'
+  | 'status'
+
+type SortDirection = 'asc' | 'desc'
 
 export default function ExpensesPage() {
   const currentMonth = currentYearMonth()
@@ -54,6 +66,8 @@ export default function ExpensesPage() {
   const [filterStartMonth, setFilterStartMonth] = useState(currentMonth)
   const [filterEndMonth, setFilterEndMonth] = useState(currentMonth)
   const [page, setPage] = useState(1)
+  const [sortField, setSortField] = useState<ExpenseSortField>('year_month')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const perPage = 20
 
   const queryClient = useQueryClient()
@@ -228,7 +242,46 @@ export default function ExpensesPage() {
   const isPending = createMutation.isPending || updateMutation.isPending
   const totalPending = expenses.filter((e) => e.status === 'PENDING').reduce((s, e) => s + e.amount, 0)
   const totalPaid = expenses.filter((e) => e.status === 'PAID').reduce((s, e) => s + e.amount, 0)
-  const allCurrentPageSelected = expenses.length > 0 && expenses.every((expense) => selectedExpenseIds.includes(expense.id))
+  const sortedExpenses = useMemo(() => {
+    const items = [...expenses]
+    items.sort((left, right) => {
+      const getValue = (expense: Expense) => {
+        switch (sortField) {
+          case 'property_name':
+            return expense.property_name || ''
+          case 'category_name':
+            return expense.category_name || ''
+          case 'year_month':
+            return expense.year_month || ''
+          case 'is_recurring':
+            return expense.is_recurring ? 1 : 0
+          case 'source':
+            return expense.source || ''
+          case 'name':
+            return expense.name || ''
+          case 'amount':
+            return expense.amount || 0
+          case 'status':
+            return expense.status || ''
+          default:
+            return ''
+        }
+      }
+
+      const leftValue = getValue(left)
+      const rightValue = getValue(right)
+
+      if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+        return sortDirection === 'asc' ? leftValue - rightValue : rightValue - leftValue
+      }
+
+      const result = String(leftValue).localeCompare(String(rightValue), 'pt-BR', { sensitivity: 'base' })
+      return sortDirection === 'asc' ? result : -result
+    })
+    return items
+  }, [expenses, sortDirection, sortField])
+  const allCurrentPageSelected =
+    sortedExpenses.length > 0 && sortedExpenses.every((expense) => selectedExpenseIds.includes(expense.id))
   const selectedCount = selectedExpenseIds.length
   const deleteDialogTitle = deleteConfirm?.mode === 'bulk' ? 'Excluir despesas selecionadas' : 'Excluir despesa'
   const deleteDialogMessage =
@@ -267,6 +320,20 @@ export default function ExpensesPage() {
     () => expenses.filter((expense) => selectedExpenseIds.includes(expense.id)),
     [expenses, selectedExpenseIds]
   )
+  const handleSort = (field: ExpenseSortField) => {
+    if (sortField === field) {
+      setSortDirection((currentDirection) => (currentDirection === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortField(field)
+    setSortDirection('asc')
+  }
+  const sortIcon = (field: ExpenseSortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-3.5 w-3.5 text-primary-600" />
+      : <ArrowDown className="h-3.5 w-3.5 text-primary-600" />
+  }
 
   return (
     <PageContainer
@@ -567,7 +634,7 @@ export default function ExpensesPage() {
                         checked={allCurrentPageSelected}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedExpenseIds(expenses.map((expense) => expense.id))
+                            setSelectedExpenseIds(sortedExpenses.map((expense) => expense.id))
                             return
                           }
                           setSelectedExpenseIds([])
@@ -576,19 +643,59 @@ export default function ExpensesPage() {
                         className="h-4 w-4 rounded border-slate-300 text-primary-600"
                       />
                     </th>
-                    <th className="px-4 py-3 font-medium">Imóvel</th>
-                    <th className="px-4 py-3 font-medium">Categoria</th>
-                    <th className="px-4 py-3 font-medium">Competência</th>
-                    <th className="px-4 py-3 font-medium">Recorrência</th>
-                    <th className="px-4 py-3 font-medium">Origem</th>
-                    <th className="px-4 py-3 font-medium">Descrição</th>
-                    <th className="px-4 py-3 font-medium text-right">Valor</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 font-medium">
+                      <button type="button" className="inline-flex items-center gap-1" onClick={() => handleSort('property_name')}>
+                        Imóvel
+                        {sortIcon('property_name')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      <button type="button" className="inline-flex items-center gap-1" onClick={() => handleSort('category_name')}>
+                        Categoria
+                        {sortIcon('category_name')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      <button type="button" className="inline-flex items-center gap-1" onClick={() => handleSort('year_month')}>
+                        Competência
+                        {sortIcon('year_month')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      <button type="button" className="inline-flex items-center gap-1" onClick={() => handleSort('is_recurring')}>
+                        Recorrência
+                        {sortIcon('is_recurring')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      <button type="button" className="inline-flex items-center gap-1" onClick={() => handleSort('source')}>
+                        Origem
+                        {sortIcon('source')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      <button type="button" className="inline-flex items-center gap-1" onClick={() => handleSort('name')}>
+                        Descrição
+                        {sortIcon('name')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium text-right">
+                      <button type="button" className="ml-auto inline-flex items-center gap-1" onClick={() => handleSort('amount')}>
+                        Valor
+                        {sortIcon('amount')}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 font-medium">
+                      <button type="button" className="inline-flex items-center gap-1" onClick={() => handleSort('status')}>
+                        Status
+                        {sortIcon('status')}
+                      </button>
+                    </th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {expenses.map((exp) => (
+                  {sortedExpenses.map((exp) => (
                     <tr
                       key={exp.id}
                       className={exp.source === 'SCRIPT' ? 'bg-blue-50 hover:bg-blue-100' : 'hover:bg-slate-50'}
