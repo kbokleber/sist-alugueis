@@ -363,6 +363,9 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <h2 className="text-base font-medium text-slate-900">Receitas vs Despesas</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Receitas (verde): mesmo cálculo do card — líquido menos pendências e despesas importadas pelo script, por mês.
+            </p>
           </CardHeader>
           <CardContent>
             <div className="h-64">

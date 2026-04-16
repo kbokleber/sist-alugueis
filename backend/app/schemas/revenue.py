@@ -20,6 +20,9 @@ class RevenueBase(BaseModel):
     platform_fee: float = 0
     net_amount: float
     pending_amount: float | None = None
+    is_pending: bool | None = None
+    payment_status: str | None = None
+    pending_text: str | None = None
     external_id: Optional[str] = None
     notes: Optional[str] = None
 
@@ -43,6 +46,9 @@ class RevenueUpdate(BaseModel):
     platform_fee: float | None = None
     net_amount: float | None = None
     pending_amount: float | None = None
+    is_pending: bool | None = None
+    payment_status: str | None = None
+    pending_text: str | None = None
     external_id: str | None = None
     notes: str | None = None
 

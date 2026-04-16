@@ -166,7 +166,8 @@ async def test_get_bar_chart_data_includes_pending_receivables_dataset():
 
     assert chart_data["labels"] == ["mai/26"]
     assert chart_data["datasets"][0]["label"] == "Receitas"
-    assert chart_data["datasets"][0]["data"] == [780.0]
+    # net - pending - despesas SCRIPT no mês (alinhado ao card "Receitas do Período")
+    assert chart_data["datasets"][0]["data"] == [330.0]
     assert chart_data["datasets"][1]["label"] == "Pendências"
     assert chart_data["datasets"][1]["data"] == [150.0]
     assert chart_data["datasets"][2]["label"] == "Despesas"

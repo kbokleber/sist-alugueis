@@ -379,8 +379,25 @@ class DashboardService:
                 rev_q = rev_q.where(RentalRevenue.property_id == property_id)
             rev_res = await self.db.execute(rev_q)
             rev_row = rev_res.one()
-            revenues_data.append(float(rev_row.revenue or 0))
-            pending_data.append(float(rev_row.pending or 0))
+            rev_net = float(rev_row.revenue or 0)
+            rev_pending = float(rev_row.pending or 0)
+
+            # Mesma lógica do card "Receitas do Período" no frontend: líquido menos pendências
+            # e menos despesas importadas pelo script (evita divergência card vs gráfico).
+            exp_script_q = select(
+                func.coalesce(func.sum(PropertyExpense.amount), 0).label("exp_script"),
+            ).where(PropertyExpense.year_month == ym)
+            exp_script_q = self._exclude_cancelled_expenses(exp_script_q)
+            exp_script_q = self._only_script_expenses(exp_script_q)
+            if user_id is not None:
+                exp_script_q = exp_script_q.where(PropertyExpense.user_id == user_id)
+            if property_id:
+                exp_script_q = exp_script_q.where(PropertyExpense.property_id == property_id)
+            exp_script_res = await self.db.execute(exp_script_q)
+            script_total = float(exp_script_res.scalar() or 0)
+
+            revenues_data.append(rev_net - rev_pending - script_total)
+            pending_data.append(rev_pending)
 
             # Expenses
             exp_q = select(func.coalesce(func.sum(PropertyExpense.amount), 0)).where(

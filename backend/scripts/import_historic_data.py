@@ -13,6 +13,7 @@ The script imports:
 import asyncio
 import csv
 import os
+import re
 import sys
 from datetime import datetime, date
 from decimal import Decimal
@@ -78,6 +79,44 @@ def is_generic_guest_name(value: str) -> bool:
         or normalized.startswith("hospede ")
         or normalized.startswith("hóspede ")
     )
+
+
+def extract_pending_from_row(row: list[str], net_amount: Decimal) -> tuple[Decimal | None, str | None]:
+    """Extract pending signal/amount from optional extra columns.
+
+    Hostinvest exports can include a textual payment report with the word
+    "pendente" and, sometimes, an explicit value (e.g. "pendente R$ 2.610,03").
+    """
+    if len(row) <= 13:
+        return None, None
+
+    pending_note: str | None = None
+    pending_amount: Decimal | None = None
+
+    for raw_cell in row[13:]:
+        cell = (raw_cell or "").strip()
+        if not cell:
+            continue
+        if "pendente" not in cell.casefold():
+            continue
+
+        pending_note = cell
+        amount_match = re.search(
+            r"pendente(?:\s*[:\-]?\s*)(R\$\s*[\d\.\,]+|[\d\.\,]+)",
+            cell,
+            flags=re.IGNORECASE,
+        )
+        if amount_match:
+            parsed = parse_brazilian_currency(amount_match.group(1))
+            if parsed > 0:
+                pending_amount = parsed
+                break
+
+    if pending_note and pending_amount is None and net_amount > 0:
+        # If pending is present but value is not explicit, assume full net is pending.
+        pending_amount = net_amount
+
+    return pending_amount, pending_note
 
 
 async def get_admin_user(db) -> User:
@@ -248,6 +287,7 @@ async def import_revenues(db, admin_user_id: int, properties: dict) -> int:
                 valor_liquido = parse_brazilian_currency(row[10])
                 api_airbnb = parse_brazilian_currency(row[11]) if len(row) > 11 else Decimal("0")
                 reserva = normalize_booking_code(row[12]) if len(row) > 12 else ""
+                pending_amount, pending_note = extract_pending_from_row(row, valor_liquido)
 
                 if not noites_str:
                     noites = 0
@@ -311,7 +351,9 @@ async def import_revenues(db, admin_user_id: int, properties: dict) -> int:
                     cleaning_fee=float(limpeza),
                     platform_fee=float(taxa_adm),
                     net_amount=float(valor_liquido),
+                    pending_amount=float(pending_amount) if pending_amount is not None else None,
                     external_id=reserva or None,
+                    notes=pending_note,
                 )
                 db.add(rev)
                 count += 1

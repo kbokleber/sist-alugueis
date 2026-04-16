@@ -159,6 +159,54 @@ async def test_update_revenue_updates_pending_amount():
 
 
 @pytest.mark.asyncio
+async def test_create_revenue_derives_pending_from_notes_text():
+    session = FakeAsyncSession()
+    service = RevenueService(session)
+
+    revenue = await service.create(
+        uuid.uuid4(),
+        {
+            "property_id": uuid.uuid4(),
+            "year_month": "2026-04",
+            "date": date(2026, 4, 10),
+            "checkin_date": date(2026, 4, 8),
+            "guest_name": "Hospede Teste",
+            "nights": 3,
+            "net_amount": 1000.0,
+            "cleaning_fee": 150.0,
+            "platform_fee": 50.0,
+            "notes": "Relatorio de pagamento: pendente R$ 2.610,03",
+        },
+    )
+
+    assert float(revenue.pending_amount) == 2610.03
+
+
+@pytest.mark.asyncio
+async def test_create_revenue_marks_pending_when_status_is_pending():
+    session = FakeAsyncSession()
+    service = RevenueService(session)
+
+    revenue = await service.create(
+        uuid.uuid4(),
+        {
+            "property_id": uuid.uuid4(),
+            "year_month": "2026-04",
+            "date": date(2026, 4, 10),
+            "checkin_date": date(2026, 4, 8),
+            "guest_name": "Hospede Teste",
+            "nights": 3,
+            "net_amount": 1350.0,
+            "cleaning_fee": 150.0,
+            "platform_fee": 50.0,
+            "payment_status": "pendente",
+        },
+    )
+
+    assert float(revenue.pending_amount) == 1350.0
+
+
+@pytest.mark.asyncio
 async def test_get_calendar_reservations_filters_by_stay_overlap():
     engine = create_async_engine("sqlite+aiosqlite:///./test_revenue_calendar.db", echo=False)
     async with engine.begin() as conn:

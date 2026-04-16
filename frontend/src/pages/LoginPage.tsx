@@ -9,6 +9,36 @@ import { Building, Eye, EyeOff } from 'lucide-react'
 
 const LAST_LOGIN_STORAGE_KEY = 'last-login-credentials'
 
+const getLoginErrorMessage = (err: unknown): string => {
+  const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail
+  }
+
+  if (Array.isArray(detail) && detail.length > 0) {
+    const firstMessage = detail
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item
+        }
+
+        if (item && typeof item === 'object' && 'msg' in item && typeof item.msg === 'string') {
+          return item.msg
+        }
+
+        return null
+      })
+      .find((message): message is string => Boolean(message && message.trim()))
+
+    if (firstMessage) {
+      return firstMessage
+    }
+  }
+
+  return 'Login falhou. Verifique suas credenciais.'
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -41,6 +71,12 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+
+    if (!email.trim() || !password.trim()) {
+      setError('Preencha email e senha para continuar.')
+      return
+    }
+
     setLoading(true)
     try {
       const tokens = await authApi.login({ email, password })
@@ -53,8 +89,7 @@ export default function LoginPage() {
       setUser(currentUser)
       navigate('/dashboard')
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } } }
-      setError(error.response?.data?.detail || 'Login falhou. Verifique suas credenciais.')
+      setError(getLoginErrorMessage(err))
     } finally {
       setLoading(false)
     }
@@ -73,7 +108,7 @@ export default function LoginPage() {
 
         <Card>
           <CardContent className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} noValidate className="space-y-4">
               {error && (
                 <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
                   {error}
@@ -87,7 +122,7 @@ export default function LoginPage() {
                 placeholder="seu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                required
+                name="email"
                 autoComplete="email"
               />
 
@@ -99,7 +134,7 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
+                  name="password"
                   autoComplete="current-password"
                   className="pr-10"
                 />

@@ -1,5 +1,6 @@
 import uuid
 from datetime import date
+import re
 from sqlalchemy import select, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -7,6 +8,8 @@ from app.models import RentalRevenue
 
 
 class RevenueService:
+    _IMPORT_HINT_FIELDS = ("is_pending", "payment_status", "pending_text", "status")
+
     def __init__(self, db: AsyncSession):
         self.db = db
 
@@ -33,6 +36,70 @@ class RevenueService:
             year += 1
             month = 1
         return f"{year}-{month:02d}"
+
+    @classmethod
+    def _parse_brazilian_currency_text(cls, value: str) -> float | None:
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        cleaned = cleaned.replace("R$", "").replace(" ", "")
+        if "," in cleaned:
+            cleaned = cleaned.replace(".", "").replace(",", ".")
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+
+    @classmethod
+    def _extract_pending_amount_from_text(cls, text: str) -> float | None:
+        match = re.search(
+            r"pendente(?:\s*[:\-]?\s*)(R\$\s*[\d\.\,]+|[\d\.\,]+)",
+            text,
+            flags=re.IGNORECASE,
+        )
+        if not match:
+            return None
+        return cls._parse_brazilian_currency_text(match.group(1))
+
+    @classmethod
+    def _has_pending_signal(cls, value: str | None) -> bool:
+        return bool(value and "pendente" in value.casefold())
+
+    @classmethod
+    def _derive_pending_amount(
+        cls,
+        payload: dict,
+        fallback_net_amount: float | int | None = None,
+    ) -> float | None:
+        if payload.get("pending_amount") is not None:
+            return float(payload["pending_amount"])
+
+        text_candidates = [
+            payload.get("pending_text"),
+            payload.get("payment_status"),
+            payload.get("status"),
+            payload.get("notes"),
+        ]
+        has_pending_label = any(cls._has_pending_signal(text) for text in text_candidates)
+
+        for text in text_candidates:
+            if not isinstance(text, str):
+                continue
+            amount = cls._extract_pending_amount_from_text(text)
+            if amount is not None:
+                return amount
+
+        if payload.get("is_pending") is True or has_pending_label:
+            reference_net = payload.get("net_amount", fallback_net_amount)
+            if reference_net is not None:
+                return float(reference_net)
+
+        return None
+
+    @classmethod
+    def _sanitize_import_hint_fields(cls, payload: dict) -> None:
+        for field in cls._IMPORT_HINT_FIELDS:
+            payload.pop(field, None)
 
     async def get_by_id(self, revenue_id: uuid.UUID, user_id: uuid.UUID | None = None) -> RentalRevenue | None:
         query = (
@@ -113,6 +180,11 @@ class RevenueService:
         return list(result.scalars().all()), total, totals
 
     async def create(self, user_id: uuid.UUID, data: dict) -> RentalRevenue:
+        pending_amount = self._derive_pending_amount(data)
+        if pending_amount is not None:
+            data["pending_amount"] = pending_amount
+        self._sanitize_import_hint_fields(data)
+
         reference_date = self._get_reference_date(data.get("checkin_date"), data.get("date"))
         if reference_date is not None:
             data["year_month"] = self._calculate_year_month(reference_date)
@@ -128,6 +200,11 @@ class RevenueService:
         return revenue
 
     async def update(self, revenue: RentalRevenue, data: dict) -> RentalRevenue:
+        pending_amount = self._derive_pending_amount(data, fallback_net_amount=revenue.net_amount)
+        if pending_amount is not None:
+            data["pending_amount"] = pending_amount
+        self._sanitize_import_hint_fields(data)
+
         provided_year_month = data.get("year_month")
         if not provided_year_month:
             reference_date = self._get_reference_date(
