@@ -1,5 +1,3 @@
-import os
-from pathlib import Path
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -20,6 +18,10 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./dev.db"
+    database_pool_size: int = 5
+    database_max_overflow: int = 10
+    database_pool_timeout: int = 30
+    database_pool_recycle: int = 1800
 
     # JWT
     jwt_secret_key: str = "CHANGE_ME_jwt_secret_key"

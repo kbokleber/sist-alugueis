@@ -111,10 +111,20 @@ npm run dev
 | `DEBUG` | modo debug | true |
 | `ALLOWED_ORIGINS` | origens CORS separadas por vírgula | http://localhost:3000 |
 | `DATABASE_URL` | URL de conexão do banco | postgresql+asyncpg://... |
+| `DATABASE_POOL_SIZE` | conexões base do pool SQLAlchemy | 5 |
+| `DATABASE_MAX_OVERFLOW` | conexões extras sob carga | 10 |
+| `DATABASE_POOL_TIMEOUT` | espera máxima por conexão (segundos) | 30 |
+| `DATABASE_POOL_RECYCLE` | reciclagem de conexão (segundos) | 1800 |
 | `JWT_SECRET_KEY` | chave JWT (mín 32 chars) | - |
 | `JWT_ALGORITHM` | algoritmo JWT | HS256 |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | tempo de expiração do access token | 15 |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | tempo de expiração do refresh token | 7 |
+| `GUNICORN_WORKERS` | número de workers Gunicorn | 2 |
+| `GUNICORN_TIMEOUT` | timeout por request (segundos) | 60 |
+| `GUNICORN_GRACEFUL_TIMEOUT` | timeout de encerramento gracioso (segundos) | 30 |
+| `GUNICORN_KEEPALIVE` | keepalive HTTP (segundos) | 5 |
+| `GUNICORN_MAX_REQUESTS` | recicla worker após N requests | 1000 |
+| `GUNICORN_MAX_REQUESTS_JITTER` | variação aleatória do recycle | 100 |
 
 ### Variáveis de Ambiente — Frontend
 
@@ -170,11 +180,21 @@ JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=7
 ALLOWED_ORIGINS=https://seu-dominio.com
+DATABASE_POOL_SIZE=5
+DATABASE_MAX_OVERFLOW=10
+DATABASE_POOL_TIMEOUT=30
+DATABASE_POOL_RECYCLE=1800
+GUNICORN_WORKERS=2
+GUNICORN_TIMEOUT=60
+GUNICORN_GRACEFUL_TIMEOUT=30
+GUNICORN_KEEPALIVE=5
+GUNICORN_MAX_REQUESTS=1000
+GUNICORN_MAX_REQUESTS_JITTER=100
 ```
 
 **Comando start:**
 ```bash
-gunicorn app.main:app --workers 4 --bind 0.0.0.0:8000 -k uvicorn.workers.UvicornWorker
+gunicorn -c gunicorn.conf.py app.main:app
 ```
 
 Ou para desenvolvimento:
