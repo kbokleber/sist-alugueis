@@ -132,6 +132,7 @@ npm run dev
 |---|---|
 | `VITE_API_BASE_URL` | base da API (recomendado em produção: `/api/v1`) |
 | `VITE_APP_NAME` | nome da aplicação |
+| `VITE_APP_VERSION` | versão exibida na UI (recomendado: hash curto do commit) |
 
 ## Estrutura do Projeto
 
@@ -213,7 +214,10 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```env
 VITE_API_BASE_URL=/api/v1
 VITE_APP_NAME=Sistema de Aluguéis
+VITE_APP_VERSION=b442757
 ```
+
+Para manter a versão automática em produção, configure `VITE_APP_VERSION` no Coolify com o hash curto do commit do deploy atual (ex.: `git rev-parse --short HEAD` no pipeline/CI).
 
 **Porta:** 3000
 

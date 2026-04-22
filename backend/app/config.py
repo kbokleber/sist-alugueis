@@ -58,6 +58,12 @@ class Settings(BaseSettings):
                 origins.append(normalized)
         return origins
 
+    @property
+    def cors_origin_regex(self) -> str | None:
+        if self.is_development:
+            return r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+        return None
+
 
 @lru_cache
 def get_settings() -> Settings:
