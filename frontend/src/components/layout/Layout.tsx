@@ -24,7 +24,9 @@ export default function Layout({ children }: LayoutProps) {
   const { sidebarOpen, toggleSidebar } = useUIStore()
   const navigate = useNavigate()
   const location = useLocation()
-  const appVersion = (import.meta.env.VITE_APP_VERSION || 'dev').trim()
+  const buildAt = import.meta.env.VITE_APP_BUILD_AT
+  const rev = (import.meta.env.VITE_APP_VERSION || '').trim()
+  const showRev = rev.length > 0 && rev !== 'dev'
 
   const handleLogout = () => {
     logout()
@@ -75,7 +77,12 @@ export default function Layout({ children }: LayoutProps) {
         {/* Footer */}
         <div className="border-t border-slate-700 p-4">
           <div className="mb-2 text-xs text-slate-400">{user?.email}</div>
-          <div className="mb-2 text-[11px] uppercase tracking-wide text-slate-500">build {appVersion}</div>
+          <div className="mb-2 space-y-0.5 text-[11px] leading-snug text-slate-500">
+            <div>Compilado em {buildAt}</div>
+            {showRev && (
+              <div className="font-mono text-[10px] text-slate-600">Rev. {rev}</div>
+            )}
+          </div>
           <button
             onClick={handleLogout}
             className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-slate-800 hover:text-white"
