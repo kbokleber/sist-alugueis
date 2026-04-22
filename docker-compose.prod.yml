@@ -60,9 +60,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
-        VITE_APP_NAME: ${VITE_APP_NAME:-Sistema de Aluguéis}
-        VITE_APP_VERSION: ${VITE_APP_VERSION:-dev}
+        SOURCE_COMMIT: ${SOURCE_COMMIT:-}
+        COMMIT_SHA: ${COMMIT_SHA:-}
     container_name: sist_alugueis_frontend_prod
     restart: always
     ports:
