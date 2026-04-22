@@ -217,7 +217,7 @@ VITE_APP_NAME=Sistema de Aluguéis
 VITE_APP_VERSION=b442757
 ```
 
-Para manter a versão automática em produção, configure `VITE_APP_VERSION` no Coolify com o hash curto do commit do deploy atual (ex.: `git rev-parse --short HEAD` no pipeline/CI).
+Em deploy com Dockerfile, a versão da UI tenta ser resolvida automaticamente nesta ordem: `VITE_APP_VERSION` (se definido) -> `SOURCE_COMMIT`/`COMMIT_SHA` -> `git rev-parse --short HEAD` no contexto do build. Se nada estiver disponível, cai em `dev`.
 
 **Porta:** 3000
 
