@@ -106,10 +106,11 @@ async def readiness_check():
 @app.on_event("startup")
 async def startup_event():
     logger.info(
-        "startup_begin app_env=%s is_production=%s database=%s",
+        "startup_begin app_env=%s is_production=%s database=%s cors_origins=%s",
         settings.app_env,
         settings.is_production,
         settings.database_url.split("@")[-1],
+        settings.cors_origins,
     )
     # Production: schema vem só do Alembic (docker entrypoint). Evita 4 workers do Gunicorn
     # rodando create_all + ALTER em paralelo no Postgres (locks / startup lento → 504 no proxy).

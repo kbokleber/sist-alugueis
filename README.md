@@ -130,7 +130,7 @@ npm run dev
 
 | Variável | Descrição |
 |---|---|
-| `VITE_API_BASE_URL` | URL base da API |
+| `VITE_API_BASE_URL` | base da API (recomendado em produção: `/api/v1`) |
 | `VITE_APP_NAME` | nome da aplicação |
 
 ## Estrutura do Projeto
@@ -169,6 +169,8 @@ sist-alugueis/
 3. Configurar variáveis de ambiente conforme abaixo
 4. Deploy automático na branch `main`
 
+Arquitetura recomendada no Coolify: **same-origin**. Publique o frontend no domínio público e encaminhe `/api/*` para o backend via proxy. Evite usar `api.seu-dominio.com` no frontend para não depender de CORS entre domínios.
+
 #### Backend — Variáveis Coolify
 
 ```env
@@ -179,7 +181,7 @@ JWT_SECRET_KEY=<gerar_chave_32_chars>
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=7
-ALLOWED_ORIGINS=https://seu-dominio.com
+ALLOWED_ORIGINS=https://seu-dominio.com,https://www.seu-dominio.com
 DATABASE_POOL_SIZE=5
 DATABASE_MAX_OVERFLOW=10
 DATABASE_POOL_TIMEOUT=30
@@ -209,7 +211,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 #### Frontend — Variáveis Coolify
 
 ```env
-VITE_API_BASE_URL=https://api.seu-dominio.com
+VITE_API_BASE_URL=/api/v1
 VITE_APP_NAME=Sistema de Aluguéis
 ```
 
