@@ -5,9 +5,11 @@ import uuid
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from app.config import settings
 from app.api.v1.router import router as api_v1_router
 from app.database import (
+    AsyncSessionLocal,
     init_db,
     ensure_property_code_column,
     ensure_property_image_url_column,
@@ -101,7 +103,21 @@ async def health_check():
 
 @app.get("/health/ready")
 async def readiness_check():
-    return {"status": "ready"}
+    """Readiness: app can serve traffic (DB reachable when not SQLite)."""
+    if "sqlite" in settings.database_url:
+        return {"status": "ready", "database": "sqlite"}
+
+    try:
+        async with AsyncSessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception("readiness_check_failed database_unreachable=true")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "unavailable", "database": "unreachable"},
+        )
+
+    return {"status": "ready", "database": "ok"}
 
 
 @app.on_event("startup")

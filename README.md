@@ -195,10 +195,18 @@ GUNICORN_MAX_REQUESTS=1000
 GUNICORN_MAX_REQUESTS_JITTER=100
 ```
 
-**Comando start:**
+**Comando start (produção):** use o entrypoint padrão da imagem (não sobrescreva no Coolify):
+
 ```bash
-gunicorn -c gunicorn.conf.py app.main:app
+/app/scripts/docker-entrypoint.sh
 ```
+
+Ele executa `alembic upgrade head` e sobe o Gunicorn. O seed **não** roda em todo restart — apenas se `RUN_SEED=true` (primeiro deploy).
+
+**Healthcheck no Coolify (backend):**
+- Path: `/health/ready`
+- Porta: `8000`
+- O proxy só deve receber tráfego quando o banco responder.
 
 Ou para desenvolvimento:
 ```bash
@@ -219,9 +227,28 @@ VITE_APP_VERSION=b442757
 
 Em deploy com Dockerfile, a versão da UI tenta ser resolvida automaticamente nesta ordem: `VITE_APP_VERSION` (se definido) -> `SOURCE_COMMIT`/`COMMIT_SHA` -> `git rev-parse --short HEAD` no contexto do build. Se nada estiver disponível, cai em `dev`.
 
-**Porta:** 3000
+**Porta exposta do container:** `80` (Nginx interno)
 
-**Buildpack:** Node
+**Variável opcional (frontend):**
+
+```env
+BACKEND_UPSTREAM=http://backend:8000
+```
+
+No Coolify com serviços separados, use a URL interna do backend na mesma rede (nome do serviço/container que o proxy do Nginx deve alcançar).
+
+**Healthcheck no Coolify (frontend):**
+- Path: `/`
+- Porta: `80`
+
+**Regra operacional:** manter apenas **uma** release ativa (um par frontend/backend). Releases antigas paradas ainda no servidor causam `504` intermitente.
+
+**Diagnóstico no servidor:**
+
+```bash
+chmod +x scripts/prod-check.sh
+./scripts/prod-check.sh alugueis.kbosolucoes.com.br 3001
+```
 
 ### Docker Compose (Produção)
 
