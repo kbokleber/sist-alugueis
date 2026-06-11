@@ -1,7 +1,12 @@
 #!/bin/sh
 set -eu
 
-BACKEND_UPSTREAM="${BACKEND_UPSTREAM:-http://backend:8000}"
+# Coolify renomeia serviços por release (ex.: backend-i2a5...). SERVICE_NAME_BACKEND
+# é injetado automaticamente; aliases "backend" no compose cobrem deploy manual.
+if [ -z "${BACKEND_UPSTREAM:-}" ]; then
+  BACKEND_HOST="${SERVICE_NAME_BACKEND:-backend}"
+  BACKEND_UPSTREAM="http://${BACKEND_HOST}:8000"
+fi
 export BACKEND_UPSTREAM
 
 echo "[entrypoint] API proxy upstream=${BACKEND_UPSTREAM}"

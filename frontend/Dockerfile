@@ -37,6 +37,6 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 EXPOSE 80
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://127.0.0.1/ >/dev/null || exit 1
+HEALTHCHECK --interval=15s --timeout=10s --start-period=30s --retries=5 \
+  CMD wget -qO- http://127.0.0.1/health/api >/dev/null || exit 1
 ENTRYPOINT ["/docker-entrypoint.sh"]

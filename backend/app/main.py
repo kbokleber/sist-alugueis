@@ -101,6 +101,12 @@ async def health_check():
     return {"status": "healthy", "version": "1.0.0"}
 
 
+@app.get("/health/live")
+async def liveness_check():
+    """Liveness: process is up (no DB check). Use for container restart policy."""
+    return {"status": "alive"}
+
+
 @app.get("/health/ready")
 async def readiness_check():
     """Readiness: app can serve traffic (DB reachable when not SQLite)."""

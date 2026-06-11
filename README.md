@@ -238,8 +238,10 @@ BACKEND_UPSTREAM=http://backend:8000
 No Coolify com serviços separados, use a URL interna do backend na mesma rede (nome do serviço/container que o proxy do Nginx deve alcançar).
 
 **Healthcheck no Coolify (frontend):**
-- Path: `/`
+- Path: `/health/api` (valida Nginx **e** conectividade com o backend)
 - Porta: `80`
+
+Documentação completa: [docs/arquitetura-producao-coolify.md](docs/arquitetura-producao-coolify.md)
 
 **Regra operacional:** manter apenas **uma** release ativa (um par frontend/backend). Releases antigas paradas ainda no servidor causam `504` intermitente.
 
@@ -247,7 +249,7 @@ No Coolify com serviços separados, use a URL interna do backend na mesma rede (
 
 ```bash
 chmod +x scripts/prod-check.sh
-./scripts/prod-check.sh alugueis.kbosolucoes.com.br 3001
+./scripts/prod-check.sh alugueis.kbosolucoes.com.br alugueis-api.kbosolucoes.com.br 3001
 ```
 
 ### Docker Compose (Produção)

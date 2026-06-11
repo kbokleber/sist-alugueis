@@ -1,23 +1,80 @@
+# Gerado a partir de nginx.conf.template (envsubst no docker-entrypoint.sh).
+# BACKEND_UPSTREAM ex.: http://backend:8000
+
 server {
     listen 80;
     root /usr/share/nginx/html;
     index index.html;
+
+    # Docker embedded DNS: re-resolve o IP do backend a cada 10s.
+    # Sem isso, o Nginx cacheia o IP no boot e um redeploy do backend
+    # (novo container/IP) deixa a API fora mesmo com tudo "verde".
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    resolver_timeout 5s;
+
+    # Compressão
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/json application/javascript
+               application/xml image/svg+xml font/woff2;
+
+    # Health: SPA estático (Traefik/Coolify pode usar /)
+    location = /health {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # Health: valida proxy até o backend (usado pelo healthcheck do container)
+    location = /health/api {
+        access_log off;
+        set $backend_upstream ${BACKEND_UPSTREAM};
+        proxy_pass $backend_upstream/health/ready;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 10s;
+        proxy_read_timeout 10s;
+    }
+
+    # Assets com hash no nome (Vite): cache agressivo
+    location /assets/ {
+        access_log off;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # index.html nunca cacheado: garante que o browser pegue a release nova
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        try_files $uri =404;
+    }
 
     location / {
         try_files $uri $uri/ /index.html;
     }
 
     # Same-origin API proxy: browser calls /api/v1/* on same domain.
-    # BACKEND_UPSTREAM is injected at container start (see docker-entrypoint.sh).
+    # Variável no proxy_pass força re-resolução de DNS (vs. hostname fixo,
+    # resolvido uma única vez no startup do Nginx).
     location /api/ {
-        proxy_pass ${BACKEND_UPSTREAM};
+        set $backend_upstream ${BACKEND_UPSTREAM};
+        proxy_pass $backend_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_connect_timeout 15s;
+        proxy_connect_timeout 10s;
         proxy_send_timeout 60s;
         proxy_read_timeout 60s;
+        proxy_next_upstream error timeout http_502 http_503 http_504;
+        proxy_next_upstream_tries 2;
+        proxy_next_upstream_timeout 15s;
+        proxy_buffering on;
+        proxy_buffer_size 8k;
+        proxy_buffers 8 8k;
     }
 }
