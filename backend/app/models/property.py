@@ -28,6 +28,12 @@ class Property(Base):
     monthly_depreciation_percent: Mapped[float] = mapped_column(
         DECIMAL(5, 2), default=1.00
     )
+    default_cleaning_fee: Mapped[float] = mapped_column(
+        DECIMAL(15, 2), default=170.00
+    )
+    platform_fee_percent: Mapped[float] = mapped_column(
+        DECIMAL(5, 2), default=15.00
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime | None] = mapped_column(

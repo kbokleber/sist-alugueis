@@ -31,6 +31,12 @@ type SortDirection = 'asc' | 'desc'
 const calculateGrossAmount = (netAmount: number, cleaningFee: number, platformFee: number) =>
   netAmount + cleaningFee + platformFee
 
+const calculatePlatformFee = (netAmount: number, platformFeePercent: number) => {
+  const percent = platformFeePercent / 100
+  if (percent <= 0 || percent >= 1) return 0
+  return Math.round((netAmount * percent) / (1 - percent) * 100) / 100
+}
+
 const calculateCompetenceMonth = (checkinDate: string, fallbackDate: string) => {
   const reference = checkinDate || fallbackDate
   if (!reference) return ''
@@ -188,7 +194,7 @@ export default function RevenuesPage() {
     e.preventDefault()
     const computedYearMonth = calculateCompetenceMonth(checkinDate, date)
 
-    const data = {
+    const payload: Parameters<typeof revenuesApi.create>[0] = {
       property_id: propertyId,
       guest_name: guestName,
       date,
@@ -197,7 +203,6 @@ export default function RevenuesPage() {
       nights: Number(nights),
       gross_amount: Number(grossAmount || 0),
       cleaning_fee: Number(cleaningFee),
-      platform_fee: Number(platformFee),
       net_amount: Number(netAmount || 0),
       pending_amount: Number(pendingAmount || 0),
       year_month: editing ? yearMonth : computedYearMonth,
@@ -205,14 +210,20 @@ export default function RevenuesPage() {
       external_id: externalId || undefined,
       notes: notes || undefined,
     }
+
     if (editing) {
-      updateMutation.mutate({ id: editing.id, data })
+      payload.platform_fee = Number(platformFee)
+    }
+
+    if (editing) {
+      updateMutation.mutate({ id: editing.id, data: payload })
     } else {
-      createMutation.mutate(data)
+      createMutation.mutate(payload)
     }
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending
+  const selectedPropertyForForm = properties.find((property) => property.id === propertyId)
   const summaryTotals = data?.meta?.totals
   const totalGross = summaryTotals?.total_gross ?? revenues.reduce((sum, r) => sum + r.gross_amount, 0)
   const totalPending = summaryTotals?.total_pending ?? revenues.reduce((sum, r) => sum + (r.pending_amount || 0), 0)
@@ -275,6 +286,31 @@ export default function RevenuesPage() {
       ? <ArrowUp className="h-3.5 w-3.5 text-primary-600" />
       : <ArrowDown className="h-3.5 w-3.5 text-primary-600" />
   }
+
+  useEffect(() => {
+    if (editing || !propertyId) return
+
+    const selectedProperty = properties.find((property) => property.id === propertyId)
+    if (!selectedProperty) return
+
+    setCleaningFee(String(selectedProperty.default_cleaning_fee))
+  }, [propertyId, properties, editing])
+
+  useEffect(() => {
+    if (editing) return
+
+    const selectedProperty = properties.find((property) => property.id === propertyId)
+    if (!selectedProperty) {
+      setPlatformFee('0')
+      return
+    }
+
+    const computedPlatformFee = calculatePlatformFee(
+      Number(netAmount || 0),
+      selectedProperty.platform_fee_percent
+    )
+    setPlatformFee(String(computedPlatformFee))
+  }, [propertyId, properties, netAmount, editing])
 
   useEffect(() => {
     if (editing) return
@@ -448,11 +484,16 @@ export default function RevenuesPage() {
             required
           />
           <Input
-            label="Taxa da plataforma (R$)"
+            label={
+              !editing && selectedPropertyForForm
+                ? `Taxa da plataforma (R$) — ${selectedPropertyForForm.platform_fee_percent}%`
+                : 'Taxa da plataforma (R$)'
+            }
             placeholder="0,00"
             type="number"
             value={platformFee}
             onChange={(e) => setPlatformFee(e.target.value)}
+            readOnly={!editing}
             required
           />
           <Input

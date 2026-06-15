@@ -4,7 +4,7 @@ import re
 from sqlalchemy import select, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from app.models import RentalRevenue
+from app.models import RentalRevenue, Property
 
 
 class RevenueService:
@@ -101,6 +101,45 @@ class RevenueService:
         for field in cls._IMPORT_HINT_FIELDS:
             payload.pop(field, None)
 
+    @classmethod
+    def _calculate_platform_fee(
+        cls,
+        net_amount: float | int,
+        platform_fee_percent: float | int,
+    ) -> float:
+        percent = float(platform_fee_percent or 0) / 100
+        if percent <= 0 or percent >= 1:
+            return 0.0
+        net = float(net_amount or 0)
+        return round(net * percent / (1 - percent), 2)
+
+    async def _apply_property_financial_rules(
+        self,
+        user_id: uuid.UUID,
+        data: dict,
+    ) -> None:
+        if data.get("cleaning_fee") is not None and data.get("platform_fee") is not None:
+            return
+
+        property_id = data.get("property_id")
+        if property_id is None:
+            return
+
+        query = select(Property).where(Property.id == property_id)
+        query = query.where(Property.user_id == user_id)
+        result = await self.db.execute(query)
+        prop = result.scalar_one_or_none()
+        if prop is None:
+            return
+
+        if data.get("cleaning_fee") is None:
+            data["cleaning_fee"] = float(prop.default_cleaning_fee or 0)
+        if data.get("platform_fee") is None:
+            data["platform_fee"] = self._calculate_platform_fee(
+                data.get("net_amount", 0),
+                prop.platform_fee_percent,
+            )
+
     async def get_by_id(self, revenue_id: uuid.UUID, user_id: uuid.UUID | None = None) -> RentalRevenue | None:
         query = (
             select(RentalRevenue)
@@ -184,6 +223,8 @@ class RevenueService:
         if pending_amount is not None:
             data["pending_amount"] = pending_amount
         self._sanitize_import_hint_fields(data)
+
+        await self._apply_property_financial_rules(user_id, data)
 
         reference_date = self._get_reference_date(data.get("checkin_date"), data.get("date"))
         if reference_date is not None:

@@ -13,6 +13,7 @@ from app.database import (
     init_db,
     ensure_property_code_column,
     ensure_property_image_url_column,
+    ensure_property_financial_columns,
     ensure_revenue_pending_amount_column,
 )
 
@@ -143,6 +144,7 @@ async def startup_event():
     await init_db()
     await ensure_property_code_column()
     await ensure_property_image_url_column()
+    await ensure_property_financial_columns()
     await ensure_revenue_pending_amount_column()
     logger.info("startup_complete dev_db_ready=true")
 

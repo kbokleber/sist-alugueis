@@ -31,6 +31,8 @@ class PropertyService:
         image_url: str | None,
         property_value: float,
         monthly_depreciation_percent: float = 1.00,
+        default_cleaning_fee: float = 170.00,
+        platform_fee_percent: float = 15.00,
     ) -> Property:
         prop = Property(
             user_id=user_id,
@@ -40,6 +42,8 @@ class PropertyService:
             image_url=image_url,
             property_value=property_value,
             monthly_depreciation_percent=monthly_depreciation_percent,
+            default_cleaning_fee=default_cleaning_fee,
+            platform_fee_percent=platform_fee_percent,
         )
         self.db.add(prop)
         await self.db.commit()

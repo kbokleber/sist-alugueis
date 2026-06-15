@@ -12,6 +12,8 @@ class PropertyBase(BaseModel):
     image_url: str | None = None
     property_value: float
     monthly_depreciation_percent: float = 1.00
+    default_cleaning_fee: float = 170.00
+    platform_fee_percent: float = 15.00
 
 
 class PropertyCreate(PropertyBase):
@@ -25,6 +27,8 @@ class PropertyUpdate(BaseModel):
     image_url: str | None = None
     property_value: float | None = None
     monthly_depreciation_percent: float | None = None
+    default_cleaning_fee: float | None = None
+    platform_fee_percent: float | None = None
     is_active: bool | None = None
 
 

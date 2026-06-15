@@ -28,7 +28,8 @@ class RevenueBase(BaseModel):
 
 
 class RevenueCreate(RevenueBase):
-    pass
+    cleaning_fee: float | None = None
+    platform_fee: float | None = None
 
 
 class RevenueUpdate(BaseModel):

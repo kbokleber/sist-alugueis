@@ -95,7 +95,7 @@ async def create_revenue(
     current_user: User = Depends(get_current_user),
 ):
     service = RevenueService(db)
-    revenue = await service.create(current_user.id, data.model_dump())
+    revenue = await service.create(current_user.id, data.model_dump(exclude_unset=True))
     hydrated_revenue = await service.get_by_id(revenue.id, current_user.id)
     if hydrated_revenue is not None:
         revenue = hydrated_revenue

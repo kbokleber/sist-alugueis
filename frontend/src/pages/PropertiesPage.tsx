@@ -11,7 +11,7 @@ import { FormModal } from '@/components/ui/FormModal'
 import { toast } from '@/stores/toastStore'
 import { formatMoney } from '@/lib/utils'
 import { Plus, Pencil, Trash2, Building, Loader2, Upload } from 'lucide-react'
-import type { Property } from '@/types/property.types'
+import type { Property, CreatePropertyRequest } from '@/types/property.types'
 
 function PropertyImage({ property }: { property: Property }) {
   const [hasError, setHasError] = useState(false)
@@ -65,7 +65,9 @@ export default function PropertiesPage() {
   const [address, setAddress] = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [propertyValue, setPropertyValue] = useState('')
-  const [depreciation, setDepreciation] = useState('0.5')
+  const [depreciation, setDepreciation] = useState('1')
+  const [defaultCleaningFee, setDefaultCleaningFee] = useState('')
+  const [platformFeePercent, setPlatformFeePercent] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const queryClient = useQueryClient()
@@ -76,8 +78,7 @@ export default function PropertiesPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (data: { code?: string; name: string; address: string; image_url?: string; property_value: number; monthly_depreciation_percent: number }) =>
-      propertiesApi.create(data),
+    mutationFn: (data: CreatePropertyRequest) => propertiesApi.create(data),
     onSuccess: () => {
       toast.success('Imóvel criado com sucesso!')
       queryClient.invalidateQueries({ queryKey: ['properties'] })
@@ -131,7 +132,9 @@ export default function PropertiesPage() {
     setAddress('')
     setImageUrl('')
     setPropertyValue('')
-    setDepreciation('0.5')
+    setDepreciation('1')
+    setDefaultCleaningFee('')
+    setPlatformFeePercent('')
     setShowForm(false)
     setEditing(null)
     if (fileInputRef.current) {
@@ -147,12 +150,18 @@ export default function PropertiesPage() {
     setImageUrl(property.image_url || '')
     setPropertyValue(String(property.property_value))
     setDepreciation(String(property.monthly_depreciation_percent))
+    setDefaultCleaningFee(
+      property.default_cleaning_fee != null ? String(property.default_cleaning_fee) : ''
+    )
+    setPlatformFeePercent(
+      property.platform_fee_percent != null ? String(property.platform_fee_percent) : ''
+    )
     setShowForm(true)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const data = {
+    const data: CreatePropertyRequest = {
       code: code || undefined,
       name,
       address: address || undefined,
@@ -160,6 +169,14 @@ export default function PropertiesPage() {
       property_value: Number(propertyValue),
       monthly_depreciation_percent: Number(depreciation),
     }
+
+    if (defaultCleaningFee.trim() !== '') {
+      data.default_cleaning_fee = Number(defaultCleaningFee)
+    }
+    if (platformFeePercent.trim() !== '') {
+      data.platform_fee_percent = Number(platformFeePercent)
+    }
+
     if (editing) {
       updateMutation.mutate({ id: editing.id, data })
     } else {
@@ -260,8 +277,30 @@ export default function PropertiesPage() {
             step="0.1"
             value={depreciation}
             onChange={(e) => setDepreciation(e.target.value)}
-            placeholder="0.5"
+            placeholder="1"
           />
+          <Input
+            label="Taxa de limpeza padrão (R$)"
+            type="number"
+            step="0.01"
+            min="0"
+            value={defaultCleaningFee}
+            onChange={(e) => setDefaultCleaningFee(e.target.value)}
+            placeholder="170"
+          />
+          <Input
+            label="Taxa da plataforma (%)"
+            type="number"
+            step="0.01"
+            min="0"
+            max="99.99"
+            value={platformFeePercent}
+            onChange={(e) => setPlatformFeePercent(e.target.value)}
+            placeholder="15"
+          />
+          <p className="sm:col-span-2 text-xs text-slate-500">
+            Percentual sobre o valor líquido (equivalente a % sobre bruto − limpeza). Se vazio, usa o padrão do sistema.
+          </p>
           <div className="sm:col-span-2 lg:col-span-4 flex justify-end gap-2 border-t border-slate-200 pt-4">
             <Button type="button" variant="outline" onClick={resetForm}>
               Cancelar
@@ -312,6 +351,14 @@ export default function PropertiesPage() {
                       <p className="text-sm">
                         <span className="text-slate-500">Deprec.:</span>{' '}
                         <span className="font-medium text-slate-900">{property.monthly_depreciation_percent}%/mês</span>
+                      </p>
+                      <p className="text-sm">
+                        <span className="text-slate-500">Limpeza:</span>{' '}
+                        <span className="font-medium text-slate-900">{formatMoney(property.default_cleaning_fee)}</span>
+                      </p>
+                      <p className="text-sm">
+                        <span className="text-slate-500">Plataforma:</span>{' '}
+                        <span className="font-medium text-slate-900">{property.platform_fee_percent}%</span>
                       </p>
                     </div>
                   </div>

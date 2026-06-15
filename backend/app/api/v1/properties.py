@@ -71,6 +71,8 @@ async def create_property(
         image_url=data.image_url,
         property_value=data.property_value,
         monthly_depreciation_percent=data.monthly_depreciation_percent,
+        default_cleaning_fee=data.default_cleaning_fee,
+        platform_fee_percent=data.platform_fee_percent,
     )
 
     # Audit log
@@ -121,6 +123,8 @@ async def update_property(
         "image_url": prop.image_url,
         "property_value": float(prop.property_value),
         "monthly_depreciation_percent": float(prop.monthly_depreciation_percent) if prop.monthly_depreciation_percent else None,
+        "default_cleaning_fee": float(prop.default_cleaning_fee) if prop.default_cleaning_fee is not None else None,
+        "platform_fee_percent": float(prop.platform_fee_percent) if prop.platform_fee_percent is not None else None,
         "is_active": prop.is_active,
     }
 

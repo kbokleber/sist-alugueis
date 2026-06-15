@@ -7,6 +7,8 @@ export interface Property {
   image_url: string | null
   property_value: number
   monthly_depreciation_percent: number
+  default_cleaning_fee: number
+  platform_fee_percent: number
   is_active: boolean
   created_at: string
   updated_at: string | null
@@ -19,4 +21,6 @@ export interface CreatePropertyRequest {
   image_url?: string
   property_value: number
   monthly_depreciation_percent?: number
+  default_cleaning_fee?: number
+  platform_fee_percent?: number
 }

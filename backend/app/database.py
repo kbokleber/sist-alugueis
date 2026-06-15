@@ -90,6 +90,51 @@ async def ensure_property_image_url_column():
                 await conn.exec_driver_sql("ALTER TABLE properties ADD COLUMN image_url TEXT")
 
 
+async def ensure_property_financial_columns():
+    async with engine.begin() as conn:
+        if "sqlite" in settings.database_url:
+            result = await conn.exec_driver_sql("PRAGMA table_info(properties)")
+            columns = {row[1] for row in result.fetchall()}
+            if "default_cleaning_fee" not in columns:
+                await conn.exec_driver_sql(
+                    "ALTER TABLE properties ADD COLUMN default_cleaning_fee NUMERIC(15, 2) NOT NULL DEFAULT 170.00"
+                )
+            if "platform_fee_percent" not in columns:
+                await conn.exec_driver_sql(
+                    "ALTER TABLE properties ADD COLUMN platform_fee_percent NUMERIC(5, 2) NOT NULL DEFAULT 15.00"
+                )
+            if "default_platform_fee" in columns:
+                await conn.exec_driver_sql("ALTER TABLE properties DROP COLUMN default_platform_fee")
+            return
+
+        if "postgresql" in settings.database_url or "postgres" in settings.database_url:
+            result = await conn.exec_driver_sql(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'properties'
+                  AND column_name IN (
+                    'default_cleaning_fee',
+                    'platform_fee_percent',
+                    'default_platform_fee'
+                  )
+                """
+            )
+            columns = {row[0] for row in result.fetchall()}
+            if "default_cleaning_fee" not in columns:
+                await conn.exec_driver_sql(
+                    "ALTER TABLE properties ADD COLUMN default_cleaning_fee NUMERIC(15, 2) NOT NULL DEFAULT 170.00"
+                )
+            if "platform_fee_percent" not in columns:
+                await conn.exec_driver_sql(
+                    "ALTER TABLE properties ADD COLUMN platform_fee_percent NUMERIC(5, 2) NOT NULL DEFAULT 15.00"
+                )
+            if "default_platform_fee" in columns:
+                await conn.exec_driver_sql(
+                    "ALTER TABLE properties DROP COLUMN default_platform_fee"
+                )
+
+
 async def ensure_revenue_pending_amount_column():
     async with engine.begin() as conn:
         if "sqlite" in settings.database_url:

@@ -277,3 +277,116 @@ async def test_get_calendar_reservations_filters_by_stay_overlap():
     await engine.dispose()
 
     assert [reservation.guest_name for reservation in reservations] == ["Hospede Dentro"]
+
+
+@pytest.mark.asyncio
+async def test_calculate_platform_fee_uses_percent_of_net():
+    assert RevenueService._calculate_platform_fee(1000, 15) == 176.47
+    assert RevenueService._calculate_platform_fee(850, 15) == 150.0
+    assert RevenueService._calculate_platform_fee(1000, 0) == 0.0
+
+
+@pytest.mark.asyncio
+async def test_create_revenue_applies_property_defaults_when_fees_omitted():
+    engine = create_async_engine("sqlite+aiosqlite:///./test_revenue_defaults.db", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as db_session:
+        user = User(
+            id=uuid.uuid4(),
+            email="defaults@test.com",
+            hashed_password="hashed",
+            full_name="Defaults Test",
+            is_active=True,
+            is_superuser=False,
+        )
+        property_item = Property(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            name="Imovel Defaults",
+            property_value=Decimal("500000.00"),
+            monthly_depreciation_percent=Decimal("1.00"),
+            default_cleaning_fee=Decimal("170.00"),
+            platform_fee_percent=Decimal("15.00"),
+            is_active=True,
+        )
+        db_session.add_all([user, property_item])
+        await db_session.commit()
+
+        service = RevenueService(db_session)
+        revenue = await service.create(
+            user.id,
+            {
+                "property_id": property_item.id,
+                "year_month": "2026-04",
+                "date": date(2026, 4, 10),
+                "checkin_date": date(2026, 4, 8),
+                "guest_name": "Hospede Defaults",
+                "nights": 3,
+                "net_amount": 1000.0,
+            },
+        )
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+
+    assert float(revenue.cleaning_fee) == 170.0
+    assert float(revenue.platform_fee) == 176.47
+    assert float(revenue.gross_amount) == 1346.47
+
+
+@pytest.mark.asyncio
+async def test_create_revenue_keeps_explicit_zero_cleaning_fee():
+    engine = create_async_engine("sqlite+aiosqlite:///./test_revenue_explicit_zero.db", echo=False)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    async with async_session() as db_session:
+        user = User(
+            id=uuid.uuid4(),
+            email="explicit-zero@test.com",
+            hashed_password="hashed",
+            full_name="Explicit Zero Test",
+            is_active=True,
+            is_superuser=False,
+        )
+        property_item = Property(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            name="Imovel Explicit Zero",
+            property_value=Decimal("500000.00"),
+            monthly_depreciation_percent=Decimal("1.00"),
+            default_cleaning_fee=Decimal("170.00"),
+            platform_fee_percent=Decimal("15.00"),
+            is_active=True,
+        )
+        db_session.add_all([user, property_item])
+        await db_session.commit()
+
+        service = RevenueService(db_session)
+        revenue = await service.create(
+            user.id,
+            {
+                "property_id": property_item.id,
+                "year_month": "2026-04",
+                "date": date(2026, 4, 10),
+                "checkin_date": date(2026, 4, 8),
+                "guest_name": "Hospede Zero",
+                "nights": 3,
+                "net_amount": 1000.0,
+                "cleaning_fee": 0,
+                "platform_fee": 50.0,
+            },
+        )
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+
+    assert float(revenue.cleaning_fee) == 0.0
+    assert float(revenue.platform_fee) == 50.0
+    assert float(revenue.gross_amount) == 1050.0
