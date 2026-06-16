@@ -1,7 +1,7 @@
 import base64
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas import (
@@ -16,6 +16,7 @@ from app.services.property_service import PropertyService
 from app.services.audit_service import AuditService
 from app.dependencies import get_current_user
 from app.models import User
+from app.utils.audit_helpers import resolve_client_ip, resolve_user_agent
 
 
 router = APIRouter(prefix="/properties", tags=["properties"])
@@ -59,6 +60,7 @@ async def upload_property_image(
 @router.post("", response_model=ResponseWrapper[PropertyResponse], status_code=status.HTTP_201_CREATED)
 async def create_property(
     data: PropertyCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -75,6 +77,8 @@ async def create_property(
         platform_fee_percent=data.platform_fee_percent,
     )
 
+    new_values = data.model_dump()
+
     # Audit log
     audit_service = AuditService(db)
     await audit_service.log(
@@ -82,7 +86,9 @@ async def create_property(
         action="CREATE",
         entity_type="property",
         entity_id=prop.id,
-        new_values=data.model_dump(),
+        new_values=new_values,
+        ip_address=resolve_client_ip(request),
+        user_agent=resolve_user_agent(request),
     )
 
     return ResponseWrapper(data=prop, message="Property created successfully")
@@ -106,6 +112,7 @@ async def get_property(
 async def update_property(
     property_id: uuid.UUID,
     data: PropertyUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -128,7 +135,11 @@ async def update_property(
         "is_active": prop.is_active,
     }
 
-    updated = await service.update(prop, data.model_dump(exclude_unset=True))
+    payload = data.model_dump(exclude_unset=True)
+    updated = await service.update(prop, payload)
+
+    client_ip = resolve_client_ip(request)
+    user_agent = resolve_user_agent(request)
 
     # Audit log
     audit_service = AuditService(db)
@@ -138,7 +149,9 @@ async def update_property(
         entity_type="property",
         entity_id=property_id,
         old_values=old_values,
-        new_values=data.model_dump(exclude_unset=True),
+        new_values=payload,
+        ip_address=client_ip,
+        user_agent=user_agent,
     )
 
     return ResponseWrapper(data=updated)

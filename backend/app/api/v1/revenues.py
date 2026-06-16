@@ -1,6 +1,6 @@
 import uuid
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas import (
@@ -15,6 +15,7 @@ from app.services.revenue_service import RevenueService
 from app.services.audit_service import AuditService
 from app.dependencies import get_current_user
 from app.models import User
+from app.utils.audit_helpers import resolve_client_ip, resolve_user_agent
 
 
 router = APIRouter(prefix="/revenues", tags=["revenues"])
@@ -91,6 +92,7 @@ async def list_revenues(
 @router.post("", response_model=ResponseWrapper[RevenueResponse], status_code=status.HTTP_201_CREATED)
 async def create_revenue(
     data: RevenueCreate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -100,6 +102,8 @@ async def create_revenue(
     if hydrated_revenue is not None:
         revenue = hydrated_revenue
 
+    new_values = data.model_dump()
+
     # Audit log
     audit_service = AuditService(db)
     await audit_service.log(
@@ -107,7 +111,9 @@ async def create_revenue(
         action="CREATE",
         entity_type="revenue",
         entity_id=revenue.id,
-        new_values=data.model_dump(),
+        new_values=new_values,
+        ip_address=client_ip,
+        user_agent=user_agent,
     )
 
     return ResponseWrapper(data=serialize_revenue(revenue), message="Revenue created successfully")
@@ -161,6 +167,7 @@ async def get_revenue(
 async def update_revenue(
     revenue_id: uuid.UUID,
     data: RevenueUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -190,10 +197,14 @@ async def update_revenue(
         "notes": revenue.notes,
     }
 
-    updated = await service.update(revenue, data.model_dump(exclude_unset=True))
+    payload = data.model_dump(exclude_unset=True)
+    updated = await service.update(revenue, payload)
     hydrated_updated = await service.get_by_id(updated.id, scope_user_id)
     if hydrated_updated is not None:
         updated = hydrated_updated
+
+    client_ip = resolve_client_ip(request)
+    user_agent = resolve_user_agent(request)
 
     # Audit log
     audit_service = AuditService(db)
@@ -203,7 +214,9 @@ async def update_revenue(
         entity_type="revenue",
         entity_id=revenue_id,
         old_values=old_values,
-        new_values=data.model_dump(exclude_unset=True),
+        new_values=payload,
+        ip_address=client_ip,
+        user_agent=user_agent,
     )
 
     return ResponseWrapper(data=serialize_revenue(updated))

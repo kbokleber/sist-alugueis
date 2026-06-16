@@ -31,6 +31,7 @@ const ACTIONS = ['CREATE', 'UPDATE', 'DELETE']
 
 export default function AuditPage() {
   const [entityType, setEntityType] = useState('')
+  const [actionFilter, setActionFilter] = useState('')
   const [page, setPage] = useState(1)
   const [expandedLog, setExpandedLog] = useState<string | null>(null)
   const perPage = 20
@@ -45,7 +46,9 @@ export default function AuditPage() {
     queryFn: () => auditApi.list({ entity_type: entityType || undefined, page, per_page: perPage }),
   })
 
-  const logs = data?.data || []
+  const logs = (data?.data || []).filter((log) =>
+    actionFilter ? log.action === actionFilter : true
+  )
   const meta = data?.meta || { total: 0, page: 1, per_page: perPage, total_pages: 1 }
 
   const getUserName = (userId: string | null): string => {
@@ -153,6 +156,26 @@ export default function AuditPage() {
                 ))}
               </select>
             </div>
+            <div className="w-48">
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Ação
+              </label>
+              <select
+                value={actionFilter}
+                onChange={e => {
+                  setActionFilter(e.target.value)
+                  setPage(1)
+                }}
+                className="w-full h-10 px-3 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">Todas</option>
+                {ACTIONS.map(action => (
+                  <option key={action} value={action}>
+                    {action}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -206,6 +229,11 @@ export default function AuditPage() {
                             <Calendar className="h-3 w-3" />
                             {formatDate(log.created_at)}
                           </span>
+                          {log.ip_address && (
+                            <span className="flex items-center gap-1 font-mono text-xs">
+                              IP: {log.ip_address}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
