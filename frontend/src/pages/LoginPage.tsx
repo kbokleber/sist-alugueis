@@ -1,7 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '@/api/auth'
-import { keycloakEnabled, loginWithKeycloak } from '@/auth/keycloak'
+import {
+  consumeLoggingOutFlag,
+  isOidcCallback,
+  keycloakEnabled,
+  loginWithKeycloak,
+} from '@/auth/keycloak'
 import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -49,6 +54,7 @@ export default function LoginPage() {
   const [legacyEnabled, setLegacyEnabled] = useState(true)
   const [showLegacy, setShowLegacy] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
+  const autoLoginAttempted = useRef(false)
   const { login, setUser, isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
 
@@ -66,19 +72,31 @@ export default function LoginPage() {
   }, [])
 
   useEffect(() => {
+    // Após Sair: NÃO chamar login automático — só botão Entrar.
+    if (consumeLoggingOutFlag()) {
+      setRedirecting(false)
+      return
+    }
+
     const pending = sessionStorage.getItem('kc-not-registered')
     if (pending) {
       sessionStorage.removeItem('kc-not-registered')
       setError(pending)
-      // Sessão Keycloak já deve ter sido encerrada no logout; não auto-redireciona.
       return
     }
 
-    // Login principal = tela do próprio Keycloak (Google / usuário-senha do realm).
-    if (keycloakEnabled && !isAuthenticated) {
-      setRedirecting(true)
-      loginWithKeycloak()
+    // Evita 2ª troca de code / login durante callback OIDC.
+    if (isOidcCallback()) {
+      return
     }
+
+    if (!keycloakEnabled || isAuthenticated || autoLoginAttempted.current) {
+      return
+    }
+
+    autoLoginAttempted.current = true
+    setRedirecting(true)
+    loginWithKeycloak()
   }, [isAuthenticated])
 
   useEffect(() => {

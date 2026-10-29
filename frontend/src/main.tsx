@@ -5,10 +5,9 @@ import App from './App'
 import './index.css'
 import { queryClient } from './lib/queryClient'
 
+// Sem StrictMode: evita double-mount que troca o authorization code do Keycloak 2x (invalid_code).
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  </React.StrictMode>
+  <QueryClientProvider client={queryClient}>
+    <App />
+  </QueryClientProvider>
 )

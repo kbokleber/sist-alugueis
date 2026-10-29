@@ -1,12 +1,13 @@
 import { BrowserRouter } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AppRouter from './router/AppRouter'
 import { useAuthStore } from './stores/authStore'
 import ToastContainer from './components/ui/Toast'
 import { authApi } from './api/auth'
 import {
-  consumeLoggedOutFlag,
+  consumeLoggingOutFlag,
   initKeycloak,
+  isLoggingOut,
   keycloak,
   keycloakEnabled,
 } from './auth/keycloak'
@@ -33,10 +34,14 @@ async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   }
 }
 
+/** Garante um único bootstrap Keycloak mesmo com StrictMode (mount → unmount → mount). */
+let keycloakBootstrapPromise: Promise<void> | null = null
+
 function App() {
-  const { token, user, hydrated, logout, setUser, login, authProvider } = useAuthStore()
+  const { token, user, hydrated, setUser, login, authProvider } = useAuthStore()
   const [keycloakReady, setKeycloakReady] = useState(!keycloakEnabled)
   const [bootMessage, setBootMessage] = useState('Carregando…')
+  const bootStarted = useRef(false)
 
   useEffect(() => {
     if (!keycloakEnabled) {
@@ -44,70 +49,74 @@ function App() {
       return
     }
 
-    let cancelled = false
+    // StrictMode: evita processar o callback OIDC duas vezes neste mount cycle.
+    if (bootStarted.current && keycloakBootstrapPromise) {
+      void keycloakBootstrapPromise.finally(() => setKeycloakReady(true))
+      return
+    }
+    bootStarted.current = true
+
     setBootMessage('Validando sessão…')
 
-    initKeycloak()
-      .then(async (authenticated) => {
-        if (cancelled) return
+    keycloakBootstrapPromise = (async () => {
+      if (isLoggingOut()) {
+        consumeLoggingOutFlag()
+        useAuthStore.getState().clearLocalSession()
+        return
+      }
 
-        // Após "Sair", não reacertar sessão SSO residual nesta carga.
-        const justLoggedOut = consumeLoggedOutFlag()
-        if (justLoggedOut) {
-          useAuthStore.getState().clearLocalSession()
-          if (!cancelled) setKeycloakReady(true)
-          return
-        }
+      const authenticated = await initKeycloak()
 
-        if (authenticated && keycloak?.token) {
-          setBootMessage('Carregando usuário…')
-          try {
-            login(
-              {
-                id: '',
-                email: (keycloak.tokenParsed?.email as string) || '',
-                full_name: (keycloak.tokenParsed?.name as string) || '',
-                is_active: true,
-                is_superuser: false,
-                created_at: '',
-                updated_at: null,
-              },
-              keycloak.token,
-              'keycloak',
-            )
-            const currentUser = await withTimeout(authApi.me(), 15000)
-            if (cancelled) return
-            setUser(currentUser)
-          } catch (err: unknown) {
-            const detail = (err as { response?: { data?: { detail?: string }; status?: number } })
-              ?.response
-            if (detail?.status === 403 && detail.data?.detail === 'Usuário não cadastrado') {
-              sessionStorage.setItem('kc-not-registered', 'Usuário não cadastrado')
-              // Limpa local + encerra sessão no Keycloak (não só JWT/localStorage).
-              useAuthStore.getState().logout()
-              return
-            }
-            console.error('[auth] falha ao carregar /auth/me após Keycloak', err)
-            useAuthStore.getState().clearLocalSession()
+      if (isLoggingOut()) {
+        consumeLoggingOutFlag()
+        useAuthStore.getState().clearLocalSession()
+        return
+      }
+
+      if (authenticated && keycloak?.token) {
+        setBootMessage('Carregando usuário…')
+        try {
+          login(
+            {
+              id: '',
+              email: (keycloak.tokenParsed?.email as string) || '',
+              full_name: (keycloak.tokenParsed?.name as string) || '',
+              is_active: true,
+              is_superuser: false,
+              created_at: '',
+              updated_at: null,
+            },
+            keycloak.token,
+            'keycloak',
+          )
+          const currentUser = await withTimeout(authApi.me(), 15000)
+          setUser(currentUser)
+        } catch (err: unknown) {
+          const detail = (err as { response?: { data?: { detail?: string }; status?: number } })
+            ?.response
+          if (detail?.status === 403 && detail.data?.detail === 'Usuário não cadastrado') {
+            sessionStorage.setItem('kc-not-registered', 'Usuário não cadastrado')
+            useAuthStore.getState().logout()
+            return
           }
+          console.error('[auth] falha ao carregar /auth/me após Keycloak', err)
+          useAuthStore.getState().clearLocalSession()
         }
-
-        if (!cancelled) setKeycloakReady(true)
-      })
+      }
+    })()
       .catch((err) => {
         console.warn('[auth] init Keycloak falhou', err)
-        if (!cancelled) setKeycloakReady(true)
       })
-
-    return () => {
-      cancelled = true
-    }
+      .finally(() => {
+        setKeycloakReady(true)
+      })
   }, [login, setUser])
 
   useEffect(() => {
     if (!hydrated || !keycloakReady) return
     if (!token || user) return
     if (authProvider === 'keycloak') return
+    if (isLoggingOut()) return
 
     authApi
       .me()
@@ -115,9 +124,9 @@ function App() {
         setUser(currentUser)
       })
       .catch(() => {
-        logout()
+        useAuthStore.getState().clearLocalSession()
       })
-  }, [hydrated, keycloakReady, token, user, setUser, logout, authProvider])
+  }, [hydrated, keycloakReady, token, user, setUser, authProvider])
 
   if (!hydrated || !keycloakReady) {
     return <BootSplash message={bootMessage} />
