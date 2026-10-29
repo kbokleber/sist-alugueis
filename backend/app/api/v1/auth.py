@@ -1,6 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import settings
 from app.database import get_db
+from app.dependencies import get_current_user
+from app.models import User
 from app.schemas import (
     LoginRequest,
     RegisterRequest,
@@ -10,19 +16,39 @@ from app.schemas import (
     UserMeResponse,
 )
 from app.services.auth_service import AuthService
-from app.dependencies import get_current_user
-from app.models import User
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+class AuthConfigResponse(BaseModel):
+    keycloak_url: str
+    realm: str
+    client_id: str
+    legacy_enabled: bool
+
+
+@router.get("/config", response_model=ResponseWrapper[AuthConfigResponse])
+async def auth_config():
+    return ResponseWrapper(
+        data=AuthConfigResponse(
+            keycloak_url=settings.keycloak_url,
+            realm=settings.keycloak_realm,
+            client_id=settings.keycloak_client_id,
+            legacy_enabled=settings.auth_legacy_password_enabled,
+        )
+    )
+
+
 @router.post("/register", response_model=ResponseWrapper[TokenResponse], status_code=status.HTTP_201_CREATED)
 async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    if not settings.auth_legacy_password_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cadastro por senha desabilitado",
+        )
     service = AuthService(db)
-    existing = await service.db.execute(
-        __import__("sqlalchemy").select(User).where(User.email == data.email)
-    )
+    existing = await service.db.execute(select(User).where(User.email == data.email))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -33,8 +59,13 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login", response_model=ResponseWrapper[TokenResponse])
 async def login(data: LoginRequest, db: AsyncSession = Depends(get_db)):
+    if not settings.auth_legacy_password_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Login por senha desabilitado",
+        )
+
     service = AuthService(db)
-    from sqlalchemy import select
     result = await db.execute(select(User).where(User.email == data.email))
     existing = result.scalar_one_or_none()
     if not existing:

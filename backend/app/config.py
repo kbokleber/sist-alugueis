@@ -23,11 +23,19 @@ class Settings(BaseSettings):
     database_pool_timeout: int = 30
     database_pool_recycle: int = 1800
 
-    # JWT
+    # JWT (legado — Host&Invest e formulário e-mail/senha)
     jwt_secret_key: str = "CHANGE_ME_jwt_secret_key"
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+    auth_legacy_password_enabled: bool = True
+
+    # Keycloak (realm familia, client alugueis — público, sem secret)
+    keycloak_url: str = "https://auth.kbosolucoes.com.br"
+    keycloak_realm: str = "familia"
+    keycloak_issuer: str = "https://auth.kbosolucoes.com.br/realms/familia"
+    keycloak_client_id: str = "alugueis"
+    keycloak_audience: str = "alugueis"
 
     @property
     def is_production(self) -> bool:

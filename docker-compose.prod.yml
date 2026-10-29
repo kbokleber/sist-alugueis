@@ -49,6 +49,12 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?ALLOWED_ORIGINS is required}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-https://auth.kbosolucoes.com.br}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-familia}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-https://auth.kbosolucoes.com.br/realms/familia}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-alugueis}
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-alugueis}
+      AUTH_LEGACY_PASSWORD_ENABLED: ${AUTH_LEGACY_PASSWORD_ENABLED:-true}
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
       GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-60}
       GUNICORN_GRACEFUL_TIMEOUT: ${GUNICORN_GRACEFUL_TIMEOUT:-30}
@@ -78,6 +84,9 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-https://auth.kbosolucoes.com.br}
+        VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-familia}
+        VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-alugueis}
         SOURCE_COMMIT: ${SOURCE_COMMIT:-}
         COMMIT_SHA: ${COMMIT_SHA:-}
     restart: unless-stopped
@@ -86,6 +95,9 @@ services:
       # Coolify injeta SERVICE_NAME_BACKEND (ex.: backend-i2a5...). Entrypoint resolve o upstream.
       BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-}
       SERVICE_NAME_BACKEND: ${SERVICE_NAME_BACKEND:-backend}
+      VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-https://auth.kbosolucoes.com.br}
+      VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM:-familia}
+      VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID:-alugueis}
     ports:
       - "${FRONTEND_PORT:-3001}:80"
     depends_on:

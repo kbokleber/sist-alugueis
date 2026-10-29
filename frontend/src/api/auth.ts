@@ -1,7 +1,19 @@
 import apiClient from './client'
 import type { AuthTokens, LoginRequest, RegisterRequest, User } from '@/types/auth.types'
 
+export interface AuthConfig {
+  keycloak_url: string
+  realm: string
+  client_id: string
+  legacy_enabled: boolean
+}
+
 export const authApi = {
+  config: async (): Promise<AuthConfig> => {
+    const response = await apiClient.get<{ data: AuthConfig }>('/auth/config')
+    return response.data.data
+  },
+
   login: async (data: LoginRequest): Promise<AuthTokens> => {
     const response = await apiClient.post<{ data: AuthTokens }>('/auth/login', data)
     return response.data.data

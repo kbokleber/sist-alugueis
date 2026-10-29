@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '@/api/auth'
+import { keycloakEnabled, loginWithKeycloak, logoutKeycloak } from '@/auth/keycloak'
 import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -45,24 +46,48 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login, setUser } = useAuthStore()
+  const [legacyEnabled, setLegacyEnabled] = useState(true)
+  const [showLegacy, setShowLegacy] = useState(false)
+  const [redirecting, setRedirecting] = useState(false)
+  const { login, setUser, isAuthenticated } = useAuthStore()
   const navigate = useNavigate()
 
   useEffect(() => {
-    const savedCredentials = localStorage.getItem(LAST_LOGIN_STORAGE_KEY)
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
 
-    if (!savedCredentials) {
+  useEffect(() => {
+    authApi
+      .config()
+      .then((cfg) => setLegacyEnabled(cfg.legacy_enabled))
+      .catch(() => setLegacyEnabled(true))
+  }, [])
+
+  useEffect(() => {
+    const pending = sessionStorage.getItem('kc-not-registered')
+    if (pending) {
+      sessionStorage.removeItem('kc-not-registered')
+      setError(pending)
+      logoutKeycloak()
       return
     }
 
-    try {
-      const parsedCredentials = JSON.parse(savedCredentials) as {
-        email?: string
-        password?: string
-      }
+    // Login principal = tela do próprio Keycloak (Google / usuário-senha do realm).
+    if (keycloakEnabled && !isAuthenticated) {
+      setRedirecting(true)
+      loginWithKeycloak()
+    }
+  }, [isAuthenticated])
 
-      setEmail(parsedCredentials.email ?? '')
-      setPassword(parsedCredentials.password ?? '')
+  useEffect(() => {
+    const savedCredentials = localStorage.getItem(LAST_LOGIN_STORAGE_KEY)
+    if (!savedCredentials) return
+    try {
+      const parsed = JSON.parse(savedCredentials) as { email?: string; password?: string }
+      setEmail(parsed.email ?? '')
+      setPassword(parsed.password ?? '')
     } catch {
       localStorage.removeItem(LAST_LOGIN_STORAGE_KEY)
     }
@@ -80,11 +105,20 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const tokens = await authApi.login({ email, password })
-      localStorage.setItem(
-        LAST_LOGIN_STORAGE_KEY,
-        JSON.stringify({ email, password }),
+      localStorage.setItem(LAST_LOGIN_STORAGE_KEY, JSON.stringify({ email, password }))
+      login(
+        {
+          id: '',
+          email,
+          full_name: '',
+          is_active: true,
+          is_superuser: false,
+          created_at: '',
+          updated_at: null,
+        },
+        tokens.access_token,
+        'legacy',
       )
-      login({ id: '', email, full_name: '', is_active: true, is_superuser: false, created_at: '', updated_at: null }, tokens.access_token)
       const currentUser = await authApi.me()
       setUser(currentUser)
       navigate('/dashboard')
@@ -93,6 +127,16 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (keycloakEnabled && redirecting && !error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <div className="text-center text-sm text-slate-500">
+          Redirecionando para o login…
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -107,53 +151,72 @@ export default function LoginPage() {
         </div>
 
         <Card>
-          <CardContent className="p-6">
-            <form onSubmit={handleSubmit} noValidate className="space-y-4">
-              {error && (
-                <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-                  {error}
-                </div>
-              )}
+          <CardContent className="p-6 space-y-4">
+            {error && (
+              <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
 
-              <Input
-                id="email"
-                type="email"
-                label="Email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                name="email"
-                autoComplete="email"
-              />
+            {keycloakEnabled && (
+              <Button type="button" className="w-full" onClick={() => loginWithKeycloak()}>
+                Entrar
+              </Button>
+            )}
 
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  label="Senha"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  name="password"
-                  autoComplete="current-password"
-                  className="pr-10"
-                />
+            {legacyEnabled && (
+              <div className="pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-8 text-slate-400 hover:text-slate-600"
+                  className="text-xs text-slate-400 hover:text-slate-600 underline"
+                  onClick={() => setShowLegacy((v) => !v)}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showLegacy ? 'Ocultar acesso legado' : 'Acesso técnico (e-mail/senha legado)'}
                 </button>
               </div>
+            )}
 
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Entrando...' : 'Entrar'}
-              </Button>
-            </form>
+            {legacyEnabled && showLegacy && (
+              <form onSubmit={handleSubmit} noValidate className="space-y-4 pt-2">
+                <Input
+                  id="email"
+                  type="email"
+                  label="Email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  name="email"
+                  autoComplete="email"
+                />
+
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    label="Senha"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    name="password"
+                    autoComplete="current-password"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-8 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+
+                <Button type="submit" className="w-full" disabled={loading} variant="outline">
+                  {loading ? 'Entrando...' : 'Entrar com e-mail e senha'}
+                </Button>
+              </form>
+            )}
           </CardContent>
         </Card>
-
       </div>
     </div>
   )

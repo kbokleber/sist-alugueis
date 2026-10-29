@@ -17,10 +17,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <Layout>{children}</Layout>
 }
 
+function HomeRedirect() {
+  const { isAuthenticated } = useAuthStore()
+  return <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />
+}
+
 export default function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/" element={<HomeRedirect />} />
       <Route
         path="/dashboard"
         element={

@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import { getAccessToken, keycloak, keycloakEnabled, logoutKeycloak } from '@/auth/keycloak'
 import { useAuthStore } from '@/stores/authStore'
 
 const resolveApiBaseUrl = (): string => {
@@ -16,10 +17,24 @@ export const apiClient = axios.create({
   },
 })
 
-// Request interceptor: attach JWT
 apiClient.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const token = useAuthStore.getState().token
+  async (config: InternalAxiosRequestConfig) => {
+    const { authProvider, token } = useAuthStore.getState()
+
+    if (keycloakEnabled && (authProvider === 'keycloak' || keycloak?.authenticated)) {
+      const kcToken = await getAccessToken()
+      if (!kcToken) {
+        useAuthStore.getState().logout()
+        window.location.href = '/login'
+        return Promise.reject(new Error('Sessão Keycloak expirada'))
+      }
+      if (config.headers) {
+        config.headers.Authorization = `Bearer ${kcToken}`
+      }
+      useAuthStore.getState().setToken(kcToken)
+      return config
+    }
+
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
     }
@@ -28,13 +43,38 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 )
 
-// Response interceptor: handle 401 → logout
 apiClient.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      useAuthStore.getState().logout()
-      window.location.href = '/login'
+  (error: AxiosError<{ detail?: string }>) => {
+    const status = error.response?.status
+    const detail = error.response?.data?.detail
+
+    if (status === 403 && detail === 'Usuário não cadastrado') {
+      useAuthStore.setState({
+        user: null,
+        token: null,
+        authProvider: null,
+        isAuthenticated: false,
+      })
+      if (keycloak?.authenticated) {
+        logoutKeycloak()
+      }
+      return Promise.reject(error)
+    }
+
+    if (status === 401) {
+      const provider = useAuthStore.getState().authProvider
+      useAuthStore.setState({
+        user: null,
+        token: null,
+        authProvider: null,
+        isAuthenticated: false,
+      })
+      if (provider === 'keycloak' || keycloak?.authenticated) {
+        logoutKeycloak()
+      } else {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }
