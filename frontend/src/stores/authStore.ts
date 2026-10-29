@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User } from '@/types/auth.types'
 import { queryClient } from '@/lib/queryClient'
-import { keycloak, logoutKeycloak } from '@/auth/keycloak'
+import { keycloak, keycloakEnabled, logoutKeycloak } from '@/auth/keycloak'
 
 export type AuthProvider = 'legacy' | 'keycloak' | null
 
@@ -33,11 +33,16 @@ export const useAuthStore = create<AuthState>()(
       },
       logout: () => {
         const provider = get().authProvider
+        const usedKeycloak =
+          keycloakEnabled &&
+          (provider === 'keycloak' || Boolean(keycloak?.authenticated) || Boolean(keycloak?.token))
+
         queryClient.clear()
         set({ user: null, token: null, authProvider: null, isAuthenticated: false })
-        if (provider === 'keycloak' || keycloak?.authenticated) {
-          logoutKeycloak()
-          return
+
+        if (usedKeycloak || keycloakEnabled) {
+          // Em builds com Keycloak, o botão Sair sempre encerra a sessão SSO.
+          void logoutKeycloak()
         }
       },
       setUser: (user) => {

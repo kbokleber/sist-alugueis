@@ -4,7 +4,13 @@ import AppRouter from './router/AppRouter'
 import { useAuthStore } from './stores/authStore'
 import ToastContainer from './components/ui/Toast'
 import { authApi } from './api/auth'
-import { initKeycloak, keycloak, keycloakEnabled, logoutKeycloak } from './auth/keycloak'
+import {
+  consumeLoggedOutFlag,
+  initKeycloak,
+  keycloak,
+  keycloakEnabled,
+  logoutKeycloak,
+} from './auth/keycloak'
 
 function BootSplash({ message = 'Carregando…' }: { message?: string }) {
   return (
@@ -46,6 +52,19 @@ function App() {
       .then(async (authenticated) => {
         if (cancelled) return
 
+        // Após "Sair", não reacertar sessão SSO residual nesta carga.
+        const justLoggedOut = consumeLoggedOutFlag()
+        if (justLoggedOut) {
+          useAuthStore.setState({
+            user: null,
+            token: null,
+            authProvider: null,
+            isAuthenticated: false,
+          })
+          if (!cancelled) setKeycloakReady(true)
+          return
+        }
+
         if (authenticated && keycloak?.token) {
           setBootMessage('Carregando usuário…')
           try {
@@ -76,7 +95,7 @@ function App() {
                 authProvider: null,
                 isAuthenticated: false,
               })
-              logoutKeycloak()
+              void logoutKeycloak()
               return
             }
             console.error('[auth] falha ao carregar /auth/me após Keycloak', err)

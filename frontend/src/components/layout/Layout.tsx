@@ -31,7 +31,8 @@ export default function Layout({ children }: LayoutProps) {
   const handleLogout = () => {
     const provider = useAuthStore.getState().authProvider
     logout()
-    // Keycloak logout redireciona sozinho; legado volta à tela de login.
+    // Keycloak: logoutKeycloak faz redirect para o IdP.
+    // Legado: volta à rota de login do app.
     if (provider !== 'keycloak') {
       navigate('/login')
     }

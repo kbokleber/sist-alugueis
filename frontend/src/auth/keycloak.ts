@@ -13,6 +13,7 @@ export const keycloak: Keycloak | null = keycloakEnabled
 let initPromise: Promise<boolean> | null = null
 
 const INIT_TIMEOUT_MS = 5000
+const LOGGED_OUT_FLAG = 'kc-logged-out'
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -31,6 +32,19 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   })
 }
 
+export function markLoggedOut() {
+  sessionStorage.setItem(LOGGED_OUT_FLAG, '1')
+}
+
+export function consumeLoggedOutFlag(): boolean {
+  const value = sessionStorage.getItem(LOGGED_OUT_FLAG)
+  if (value) {
+    sessionStorage.removeItem(LOGGED_OUT_FLAG)
+    return true
+  }
+  return false
+}
+
 export function initKeycloak(): Promise<boolean> {
   if (!keycloak) {
     return Promise.resolve(false)
@@ -42,7 +56,6 @@ export function initKeycloak(): Promise<boolean> {
         pkceMethod: 'S256',
         checkLoginIframe: false,
         silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
-        // Evita ficar preso se o iframe silencioso for bloqueado (3rd-party cookies / redirect URI).
         enableLogging: import.meta.env.DEV,
       }),
       INIT_TIMEOUT_MS,
@@ -51,13 +64,13 @@ export function initKeycloak(): Promise<boolean> {
       .then((authenticated) => {
         keycloak!.onTokenExpired = () => {
           void keycloak!.updateToken(30).catch(() => {
-            void keycloak!.logout({ redirectUri: `${window.location.origin}/login` })
+            markLoggedOut()
+            void logoutKeycloak()
           })
         }
         return authenticated
       })
       .catch((err) => {
-        // Permite retry em hot-reload; não deixa a UI branca.
         console.warn('[keycloak] init falhou ou expirou; seguindo sem SSO silencioso', err)
         initPromise = null
         return false
@@ -81,6 +94,7 @@ export async function getAccessToken(): Promise<string | null> {
 /** Abre a tela de login do próprio Keycloak (Google / usuário do realm). */
 export function loginWithKeycloak(options?: { idpHint?: string }) {
   if (!keycloak) return
+  sessionStorage.removeItem(LOGGED_OUT_FLAG)
   void keycloak.login({
     ...(options?.idpHint ? { idpHint: options.idpHint } : {}),
     redirectUri: `${window.location.origin}/`,
@@ -91,7 +105,42 @@ export function loginWithGoogle() {
   loginWithKeycloak({ idpHint: 'google' })
 }
 
-export function logoutKeycloak() {
-  if (!keycloak) return
-  void keycloak.logout({ redirectUri: `${window.location.origin}/` })
+function buildLogoutUrl(redirectUri: string): string {
+  const params = new URLSearchParams({
+    client_id: clientId!,
+    post_logout_redirect_uri: redirectUri,
+  })
+  if (keycloak?.idToken) {
+    params.set('id_token_hint', keycloak.idToken)
+  }
+  return `${url!.replace(/\/$/, '')}/realms/${encodeURIComponent(realm!)}/protocol/openid-connect/logout?${params.toString()}`
+}
+
+/**
+ * Encerra a sessão no Keycloak e redireciona de volta ao app.
+ * Usa fallback por URL se keycloak.logout() falhar (comum quando o adapter
+ * ainda não tem idToken / post_logout_redirect_uri).
+ */
+export async function logoutKeycloak(): Promise<void> {
+  if (!keycloak || !url || !realm || !clientId) return
+
+  markLoggedOut()
+  const redirectUri = `${window.location.origin}/`
+
+  try {
+    await initKeycloak()
+  } catch {
+    // segue com fallback
+  }
+
+  try {
+    if (keycloak.authenticated || keycloak.idToken) {
+      await keycloak.logout({ redirectUri })
+      return
+    }
+  } catch (err) {
+    console.warn('[keycloak] logout() falhou, usando URL de logout', err)
+  }
+
+  window.location.assign(buildLogoutUrl(redirectUri))
 }
