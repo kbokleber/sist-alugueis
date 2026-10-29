@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User } from '@/types/auth.types'
 import { queryClient } from '@/lib/queryClient'
-import { keycloak, keycloakEnabled, logoutKeycloak } from '@/auth/keycloak'
+import { keycloakEnabled, logoutKeycloak } from '@/auth/keycloak'
 
 export type AuthProvider = 'legacy' | 'keycloak' | null
 
@@ -13,15 +13,24 @@ interface AuthState {
   isAuthenticated: boolean
   hydrated: boolean
   login: (user: User, token: string, provider?: AuthProvider) => void
+  /** Limpa estado local e, com Keycloak ativo, SEMPRE encerra sessão no IdP. */
   logout: () => void
+  clearLocalSession: () => void
   setUser: (user: User) => void
   setToken: (token: string | null) => void
   setHydrated: (hydrated: boolean) => void
 }
 
+function clearLocalOnly(
+  set: (partial: Partial<AuthState>) => void,
+) {
+  queryClient.clear()
+  set({ user: null, token: null, authProvider: null, isAuthenticated: false })
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       token: null,
       authProvider: null,
@@ -31,18 +40,16 @@ export const useAuthStore = create<AuthState>()(
         queryClient.clear()
         set({ user, token, authProvider: provider, isAuthenticated: true })
       },
+      clearLocalSession: () => {
+        clearLocalOnly(set)
+      },
       logout: () => {
-        const provider = get().authProvider
-        const usedKeycloak =
-          keycloakEnabled &&
-          (provider === 'keycloak' || Boolean(keycloak?.authenticated) || Boolean(keycloak?.token))
+        clearLocalOnly(set)
 
-        queryClient.clear()
-        set({ user: null, token: null, authProvider: null, isAuthenticated: false })
-
-        if (usedKeycloak || keycloakEnabled) {
-          // Em builds com Keycloak, o botão Sair sempre encerra a sessão SSO.
+        // Com Keycloak habilitado no build, nunca sai só limpando JWT/localStorage.
+        if (keycloakEnabled) {
           void logoutKeycloak()
+          return
         }
       },
       setUser: (user) => {

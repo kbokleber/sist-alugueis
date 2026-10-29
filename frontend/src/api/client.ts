@@ -1,5 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
-import { getAccessToken, keycloak, keycloakEnabled, logoutKeycloak } from '@/auth/keycloak'
+import { getAccessToken, keycloak, keycloakEnabled } from '@/auth/keycloak'
 import { useAuthStore } from '@/stores/authStore'
 
 const resolveApiBaseUrl = (): string => {
@@ -24,8 +24,8 @@ apiClient.interceptors.request.use(
     if (keycloakEnabled && (authProvider === 'keycloak' || keycloak?.authenticated)) {
       const kcToken = await getAccessToken()
       if (!kcToken) {
+        // Sem token válido: logout completo (inclui Keycloak).
         useAuthStore.getState().logout()
-        window.location.href = '/login'
         return Promise.reject(new Error('Sessão Keycloak expirada'))
       }
       if (config.headers) {
@@ -50,29 +50,16 @@ apiClient.interceptors.response.use(
     const detail = error.response?.data?.detail
 
     if (status === 403 && detail === 'Usuário não cadastrado') {
-      useAuthStore.setState({
-        user: null,
-        token: null,
-        authProvider: null,
-        isAuthenticated: false,
-      })
-      if (keycloak?.authenticated) {
-        logoutKeycloak()
-      }
+      // Encerra SSO no Keycloak (não só limpa localStorage).
+      useAuthStore.getState().logout()
       return Promise.reject(error)
     }
 
     if (status === 401) {
-      const provider = useAuthStore.getState().authProvider
-      useAuthStore.setState({
-        user: null,
-        token: null,
-        authProvider: null,
-        isAuthenticated: false,
-      })
-      if (provider === 'keycloak' || keycloak?.authenticated) {
-        logoutKeycloak()
+      if (keycloakEnabled) {
+        useAuthStore.getState().logout()
       } else {
+        useAuthStore.getState().clearLocalSession()
         window.location.href = '/login'
       }
     }

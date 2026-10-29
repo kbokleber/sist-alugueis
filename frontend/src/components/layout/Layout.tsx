@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom'
+import { keycloakEnabled } from '@/auth/keycloak'
 import { useAuthStore } from '@/stores/authStore'
 import { useUIStore } from '@/stores/uiStore'
 import { Menu, X, Home, Building, TrendingUp, TrendingDown, Users, Tag, LogOut, History } from 'lucide-react'
@@ -29,11 +30,10 @@ export default function Layout({ children }: LayoutProps) {
   const showRev = rev.length > 0 && rev !== 'dev'
 
   const handleLogout = () => {
-    const provider = useAuthStore.getState().authProvider
+    // Com Keycloak: limpa estado + keycloak.logout({ redirectUri: origin }).
+    // Sem Keycloak (legado puro): limpa e vai para /login.
     logout()
-    // Keycloak: logoutKeycloak faz redirect para o IdP.
-    // Legado: volta à rota de login do app.
-    if (provider !== 'keycloak') {
+    if (!keycloakEnabled) {
       navigate('/login')
     }
   }

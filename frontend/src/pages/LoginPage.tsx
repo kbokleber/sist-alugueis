@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authApi } from '@/api/auth'
-import { keycloakEnabled, loginWithKeycloak, logoutKeycloak } from '@/auth/keycloak'
+import { keycloakEnabled, loginWithKeycloak } from '@/auth/keycloak'
 import { useAuthStore } from '@/stores/authStore'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -70,7 +70,7 @@ export default function LoginPage() {
     if (pending) {
       sessionStorage.removeItem('kc-not-registered')
       setError(pending)
-      logoutKeycloak()
+      // Sessão Keycloak já deve ter sido encerrada no logout; não auto-redireciona.
       return
     }
 

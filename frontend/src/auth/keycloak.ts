@@ -14,6 +14,7 @@ let initPromise: Promise<boolean> | null = null
 
 const INIT_TIMEOUT_MS = 5000
 const LOGGED_OUT_FLAG = 'kc-logged-out'
+const ID_TOKEN_STORAGE_KEY = 'kc-id-token'
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -45,6 +46,20 @@ export function consumeLoggedOutFlag(): boolean {
   return false
 }
 
+function persistIdToken() {
+  if (keycloak?.idToken) {
+    sessionStorage.setItem(ID_TOKEN_STORAGE_KEY, keycloak.idToken)
+  }
+}
+
+function readPersistedIdToken(): string | undefined {
+  return keycloak?.idToken || sessionStorage.getItem(ID_TOKEN_STORAGE_KEY) || undefined
+}
+
+function clearPersistedIdToken() {
+  sessionStorage.removeItem(ID_TOKEN_STORAGE_KEY)
+}
+
 export function initKeycloak(): Promise<boolean> {
   if (!keycloak) {
     return Promise.resolve(false)
@@ -62,11 +77,19 @@ export function initKeycloak(): Promise<boolean> {
       'Keycloak init',
     )
       .then((authenticated) => {
+        if (authenticated) {
+          persistIdToken()
+        }
         keycloak!.onTokenExpired = () => {
           void keycloak!.updateToken(30).catch(() => {
-            markLoggedOut()
             void logoutKeycloak()
           })
+        }
+        keycloak!.onAuthSuccess = () => {
+          persistIdToken()
+        }
+        keycloak!.onAuthRefreshSuccess = () => {
+          persistIdToken()
         }
         return authenticated
       })
@@ -85,6 +108,7 @@ export async function getAccessToken(): Promise<string | null> {
   }
   try {
     await keycloak.updateToken(30)
+    persistIdToken()
   } catch {
     return null
   }
@@ -97,7 +121,7 @@ export function loginWithKeycloak(options?: { idpHint?: string }) {
   sessionStorage.removeItem(LOGGED_OUT_FLAG)
   void keycloak.login({
     ...(options?.idpHint ? { idpHint: options.idpHint } : {}),
-    redirectUri: `${window.location.origin}/`,
+    redirectUri: window.location.origin,
   })
 }
 
@@ -110,22 +134,23 @@ function buildLogoutUrl(redirectUri: string): string {
     client_id: clientId!,
     post_logout_redirect_uri: redirectUri,
   })
-  if (keycloak?.idToken) {
-    params.set('id_token_hint', keycloak.idToken)
+  const idToken = readPersistedIdToken()
+  if (idToken) {
+    params.set('id_token_hint', idToken)
   }
   return `${url!.replace(/\/$/, '')}/realms/${encodeURIComponent(realm!)}/protocol/openid-connect/logout?${params.toString()}`
 }
 
 /**
- * Encerra a sessão no Keycloak e redireciona de volta ao app.
- * Usa fallback por URL se keycloak.logout() falhar (comum quando o adapter
- * ainda não tem idToken / post_logout_redirect_uri).
+ * Encerra a sessão no Keycloak e redireciona para o origin do app.
+ * Preferência: keycloak.logout({ redirectUri: window.location.origin }).
+ * Fallback: endpoint OIDC logout com client_id + post_logout_redirect_uri + id_token_hint.
  */
 export async function logoutKeycloak(): Promise<void> {
-  if (!keycloak || !url || !realm || !clientId) return
+  if (!keycloakEnabled || !url || !realm || !clientId) return
 
   markLoggedOut()
-  const redirectUri = `${window.location.origin}/`
+  const redirectUri = window.location.origin
 
   try {
     await initKeycloak()
@@ -134,13 +159,16 @@ export async function logoutKeycloak(): Promise<void> {
   }
 
   try {
-    if (keycloak.authenticated || keycloak.idToken) {
-      await keycloak.logout({ redirectUri })
+    if (keycloak?.authenticated || keycloak?.idToken || readPersistedIdToken()) {
+      // keycloak-js prefere redirectUri; alinhado ao pedido.
+      await keycloak!.logout({ redirectUri })
+      clearPersistedIdToken()
       return
     }
   } catch (err) {
     console.warn('[keycloak] logout() falhou, usando URL de logout', err)
   }
 
+  clearPersistedIdToken()
   window.location.assign(buildLogoutUrl(redirectUri))
 }

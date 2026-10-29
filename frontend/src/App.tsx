@@ -9,7 +9,6 @@ import {
   initKeycloak,
   keycloak,
   keycloakEnabled,
-  logoutKeycloak,
 } from './auth/keycloak'
 
 function BootSplash({ message = 'Carregando…' }: { message?: string }) {
@@ -55,12 +54,7 @@ function App() {
         // Após "Sair", não reacertar sessão SSO residual nesta carga.
         const justLoggedOut = consumeLoggedOutFlag()
         if (justLoggedOut) {
-          useAuthStore.setState({
-            user: null,
-            token: null,
-            authProvider: null,
-            isAuthenticated: false,
-          })
+          useAuthStore.getState().clearLocalSession()
           if (!cancelled) setKeycloakReady(true)
           return
         }
@@ -89,22 +83,12 @@ function App() {
               ?.response
             if (detail?.status === 403 && detail.data?.detail === 'Usuário não cadastrado') {
               sessionStorage.setItem('kc-not-registered', 'Usuário não cadastrado')
-              useAuthStore.setState({
-                user: null,
-                token: null,
-                authProvider: null,
-                isAuthenticated: false,
-              })
-              void logoutKeycloak()
+              // Limpa local + encerra sessão no Keycloak (não só JWT/localStorage).
+              useAuthStore.getState().logout()
               return
             }
             console.error('[auth] falha ao carregar /auth/me após Keycloak', err)
-            useAuthStore.setState({
-              user: null,
-              token: null,
-              authProvider: null,
-              isAuthenticated: false,
-            })
+            useAuthStore.getState().clearLocalSession()
           }
         }
 
