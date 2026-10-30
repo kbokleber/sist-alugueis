@@ -4,6 +4,8 @@ import re
 from sqlalchemy import select, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
+from app.models.stay_checklist import StayChecklist
 from app.models import RentalRevenue, Property
 
 
@@ -140,10 +142,18 @@ class RevenueService:
                 prop.platform_fee_percent,
             )
 
+    def _revenue_options(self):
+        return (
+            selectinload(RentalRevenue.property),
+            selectinload(RentalRevenue.stay_checklists).selectinload(
+                StayChecklist.performed_by
+            ),
+        )
+
     async def get_by_id(self, revenue_id: uuid.UUID, user_id: uuid.UUID | None = None) -> RentalRevenue | None:
         query = (
             select(RentalRevenue)
-            .options(selectinload(RentalRevenue.property))
+            .options(*self._revenue_options())
             .where(RentalRevenue.id == revenue_id)
         )
         if user_id is not None:
@@ -163,7 +173,7 @@ class RevenueService:
         skip: int = 0,
         limit: int = 100,
     ) -> tuple[list[RentalRevenue], int, dict]:
-        query = select(RentalRevenue).options(selectinload(RentalRevenue.property))
+        query = select(RentalRevenue).options(*self._revenue_options())
         count_query = select(func.count(RentalRevenue.id))
         totals_query = select(
             func.coalesce(func.sum(RentalRevenue.gross_amount), 0).label("total_gross"),

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { revenuesApi } from '@/api/revenues'
 import { propertiesApi } from '@/api/properties'
@@ -11,8 +11,68 @@ import { FormModal } from '@/components/ui/FormModal'
 import { toast } from '@/stores/toastStore'
 import { useAuthStore } from '@/stores/authStore'
 import { currentYearMonth, formatDate, formatMoney } from '@/lib/utils'
-import { Plus, Pencil, Trash2, TrendingUp, Loader2, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, TrendingUp, Loader2, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, LogIn, LogOut, CheckCircle2, AlertTriangle } from 'lucide-react'
+import ChecklistFormModal from '@/components/checklist/ChecklistFormModal'
+import {
+  checklistActionButtonClass,
+  checklistActionLabel,
+  isChecklistCompleted,
+} from '@/lib/checklistUi'
 import type { Revenue } from '@/types/revenue.types'
+import type { ChecklistType } from '@/types/inventory.types'
+
+function ChecklistStatusButton({
+  revenueId,
+  type,
+  done,
+  hasIncidents,
+  size = 'md',
+  performedByName,
+  onOpen,
+}: {
+  revenueId: string
+  type: ChecklistType
+  done: boolean
+  hasIncidents: boolean
+  size?: 'md' | 'sm'
+  performedByName?: string | null
+  onOpen: (revenueId: string, type: ChecklistType) => void
+}) {
+  const label = type === 'checkin' ? 'Entrada' : 'Saída'
+  const Icon = type === 'checkin' ? LogIn : LogOut
+  const byLabel =
+    done && performedByName?.trim() ? `Por ${performedByName.trim()}` : null
+  const title = [checklistActionLabel(label, done, hasIncidents), byLabel]
+    .filter(Boolean)
+    .join(' · ')
+  return (
+    <Button
+      size={size === 'sm' ? 'sm' : 'md'}
+      variant="ghost"
+      title={title}
+      className={checklistActionButtonClass(done, hasIncidents, size)}
+      onClick={() => onOpen(revenueId, type)}
+    >
+      {hasIncidents ? (
+        <AlertTriangle className={size === 'sm' ? 'h-3 w-3' : 'mr-1 h-4 w-4'} />
+      ) : done ? (
+        <CheckCircle2 className={size === 'sm' ? 'h-3 w-3' : 'mr-1 h-4 w-4'} />
+      ) : (
+        <Icon className={size === 'sm' ? 'h-3 w-3' : 'mr-1 h-4 w-4'} />
+      )}
+      {size === 'md' ? (
+        <span className="min-w-0 flex-1 text-left">
+          <span className="block leading-tight">
+            {checklistActionLabel(label, done, hasIncidents)}
+          </span>
+          {byLabel ? (
+            <span className="block truncate text-xs font-normal opacity-90">{byLabel}</span>
+          ) : null}
+        </span>
+      ) : null}
+    </Button>
+  )
+}
 
 type RevenueSortField =
   | 'external_id'
@@ -57,6 +117,11 @@ export default function RevenuesPage() {
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<Revenue | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [checklistTarget, setChecklistTarget] = useState<{
+    revenueId: string
+    type: ChecklistType
+  } | null>(null)
+  const closeChecklist = useCallback(() => setChecklistTarget(null), [])
 
   const [propertyId, setPropertyId] = useState('')
   const [guestName, setGuestName] = useState('')
@@ -443,7 +508,7 @@ export default function RevenuesPage() {
       <FormModal
         open={showForm}
         title={editing ? 'Editar receita' : 'Nova receita'}
-        description="Preencha os campos abaixo para salvar a receita."
+        description={editing ? undefined : 'Preencha os campos abaixo para salvar a receita.'}
         onClose={resetForm}
       >
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -461,15 +526,33 @@ export default function RevenuesPage() {
               ))}
             </select>
           </label>
-          <Input label="Hóspede" placeholder="Nome do hóspede" value={guestName} onChange={(e) => setGuestName(e.target.value)} required />
-          <Input label="Código da reserva" placeholder="Ex.: HY55J" value={externalId} onChange={(e) => setExternalId(e.target.value)} />
+          <Input
+            label="Hóspede"
+            placeholder={editing ? undefined : 'Nome do hóspede'}
+            value={guestName}
+            onChange={(e) => setGuestName(e.target.value)}
+            required
+          />
+          <Input
+            label="Código da reserva"
+            placeholder={editing ? undefined : 'Ex.: HY55J'}
+            value={externalId}
+            onChange={(e) => setExternalId(e.target.value)}
+          />
           <Input label="Data lançamento" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
           <Input label="Entrada do hóspede" type="date" value={checkinDate} onChange={(e) => setCheckinDate(e.target.value)} />
           <Input label="Saída do hóspede" type="date" value={checkoutDate} onChange={(e) => setCheckoutDate(e.target.value)} />
-          <Input label="Noites" placeholder="Quantidade de noites" type="number" value={nights} onChange={(e) => setNights(e.target.value)} required />
+          <Input
+            label="Noites"
+            placeholder={editing ? undefined : 'Quantidade de noites'}
+            type="number"
+            value={nights}
+            onChange={(e) => setNights(e.target.value)}
+            required
+          />
           <Input
             label="Valor líquido (R$)"
-            placeholder="0,00"
+            placeholder={editing ? undefined : '0,00'}
             type="number"
             value={netAmount}
             onChange={(e) => setNetAmount(e.target.value)}
@@ -477,7 +560,7 @@ export default function RevenuesPage() {
           />
           <Input
             label="Taxa de limpeza (R$)"
-            placeholder="0,00"
+            placeholder={editing ? undefined : '0,00'}
             type="number"
             value={cleaningFee}
             onChange={(e) => setCleaningFee(e.target.value)}
@@ -489,7 +572,7 @@ export default function RevenuesPage() {
                 ? `Taxa da plataforma (R$) — ${selectedPropertyForForm.platform_fee_percent}%`
                 : 'Taxa da plataforma (R$)'
             }
-            placeholder="0,00"
+            placeholder={editing ? undefined : '0,00'}
             type="number"
             value={platformFee}
             onChange={(e) => setPlatformFee(e.target.value)}
@@ -498,7 +581,7 @@ export default function RevenuesPage() {
           />
           <Input
             label="Valor bruto (R$)"
-            placeholder="0,00"
+            placeholder={editing ? undefined : '0,00'}
             type="number"
             value={grossAmount}
             onChange={(e) => setGrossAmount(e.target.value)}
@@ -507,7 +590,7 @@ export default function RevenuesPage() {
           />
           <Input
             label="Pendência de recebimento (R$)"
-            placeholder="0,00"
+            placeholder={editing ? undefined : '0,00'}
             type="number"
             min="0"
             step="0.01"
@@ -516,18 +599,23 @@ export default function RevenuesPage() {
           />
           <Input
             label="Competência"
-            placeholder="2026-04"
+            placeholder={editing ? undefined : '2026-04'}
             value={yearMonth}
             onChange={(e) => setYearMonth(e.target.value)}
             readOnly={!editing}
             required
           />
-          <Input label="Origem da reserva" placeholder="AIRBNB, DIRECT..." value={listingSource} onChange={(e) => setListingSource(e.target.value)} />
+          <Input
+            label="Origem da reserva"
+            placeholder={editing ? undefined : 'AIRBNB, DIRECT...'}
+            value={listingSource}
+            onChange={(e) => setListingSource(e.target.value)}
+          />
           <label className="flex flex-col gap-1 md:col-span-2 xl:col-span-3">
             <span className="text-sm font-medium text-slate-700">Observações</span>
             <textarea
               className="min-h-24 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              placeholder="Observações adicionais da receita"
+              placeholder={editing ? undefined : 'Observações adicionais da receita'}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -560,7 +648,70 @@ export default function RevenuesPage() {
       )}
 
       {!isLoading && revenues.length > 0 && (
-        <Card>
+        <>
+        {/* Cards mobile-first para conferência em campo */}
+        <div className="space-y-3 md:hidden">
+          {sortedRevenues.map((rev) => (
+            <Card
+              key={rev.id}
+              className={
+                rev.pending_amount && rev.pending_amount > 0
+                  ? 'border-red-200 bg-red-50'
+                  : undefined
+              }
+            >
+              <CardContent className="space-y-3 p-4">
+                <div>
+                  <p className="text-base font-semibold text-slate-900">
+                    {rev.property_name || 'Imóvel'}
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    {rev.guest_name || '—'} · {rev.external_id || 'Sem cód.'}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {rev.checkin_date ? formatDate(rev.checkin_date) : '—'} →{' '}
+                    {rev.checkout_date ? formatDate(rev.checkout_date) : '—'} · {rev.nights} noites
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">
+                    Líquido: {formatMoney(rev.net_amount - (rev.pending_amount || 0))}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <ChecklistStatusButton
+                    revenueId={rev.id}
+                    type="checkin"
+                    done={isChecklistCompleted(rev.checkin_checklist_status)}
+                    hasIncidents={Boolean(rev.checkin_has_incidents)}
+                    performedByName={rev.checkin_performed_by_name}
+                    onOpen={(id, type) => setChecklistTarget({ revenueId: id, type })}
+                  />
+                  <ChecklistStatusButton
+                    revenueId={rev.id}
+                    type="checkout"
+                    done={isChecklistCompleted(rev.checkout_checklist_status)}
+                    hasIncidents={Boolean(rev.checkout_has_incidents)}
+                    performedByName={rev.checkout_performed_by_name}
+                    onOpen={(id, type) => setChecklistTarget({ revenueId: id, type })}
+                  />
+                  <Button className="h-11 w-full" variant="outline" onClick={() => handleEdit(rev)}>
+                    <Pencil className="mr-1 h-4 w-4" />
+                    Editar
+                  </Button>
+                  <Button
+                    className="h-11 w-full"
+                    variant="ghost"
+                    onClick={() => setDeleteConfirm(rev.id)}
+                  >
+                    <Trash2 className="mr-1 h-4 w-4 text-red-500" />
+                    Excluir
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <Card className="hidden md:block">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -654,7 +805,25 @@ export default function RevenuesPage() {
                         {formatMoney(rev.net_amount - (rev.pending_amount || 0))}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-1">
+                        <div className="flex flex-wrap gap-1">
+                          <ChecklistStatusButton
+                            revenueId={rev.id}
+                            type="checkin"
+                            done={isChecklistCompleted(rev.checkin_checklist_status)}
+                            hasIncidents={Boolean(rev.checkin_has_incidents)}
+                            performedByName={rev.checkin_performed_by_name}
+                            size="sm"
+                            onOpen={(id, type) => setChecklistTarget({ revenueId: id, type })}
+                          />
+                          <ChecklistStatusButton
+                            revenueId={rev.id}
+                            type="checkout"
+                            done={isChecklistCompleted(rev.checkout_checklist_status)}
+                            hasIncidents={Boolean(rev.checkout_has_incidents)}
+                            performedByName={rev.checkout_performed_by_name}
+                            size="sm"
+                            onOpen={(id, type) => setChecklistTarget({ revenueId: id, type })}
+                          />
                           <Button size="sm" variant="outline" onClick={() => handleEdit(rev)}>
                             <Pencil className="h-3 w-3" />
                           </Button>
@@ -674,6 +843,7 @@ export default function RevenuesPage() {
             </div>
           </CardContent>
         </Card>
+        </>
       )}
 
       {meta.total_pages > 1 && (
@@ -711,6 +881,13 @@ export default function RevenuesPage() {
         isLoading={deleteMutation.isPending}
         onConfirm={() => deleteConfirm && deleteMutation.mutate(deleteConfirm)}
         onCancel={() => setDeleteConfirm(null)}
+      />
+
+      <ChecklistFormModal
+        open={!!checklistTarget}
+        revenueId={checklistTarget?.revenueId ?? null}
+        checklistType={checklistTarget?.type ?? null}
+        onClose={closeChecklist}
       />
     </PageContainer>
   )

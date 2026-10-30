@@ -63,6 +63,22 @@ from app.schemas.dashboard import (
     DashboardKPIs,
 )
 from app.schemas.audit import AuditLogResponse
+from app.schemas.inventory import (
+    InventoryCategoryBase,
+    InventoryCategoryCreate,
+    InventoryCategoryUpdate,
+    InventoryCategoryResponse,
+    InventoryItemBase,
+    InventoryItemCreate,
+    InventoryItemUpdate,
+    InventoryItemResponse,
+    ChecklistCreate,
+    ChecklistItemUpdate,
+    ChecklistItemsUpdate,
+    ChecklistItemResponse,
+    ChecklistResponse,
+    ChecklistSummary,
+)
 
 __all__ = [
     "ResponseWrapper",
@@ -114,4 +130,18 @@ __all__ = [
     "ChartPieDataset",
     "DashboardKPIs",
     "AuditLogResponse",
+    "InventoryCategoryBase",
+    "InventoryCategoryCreate",
+    "InventoryCategoryUpdate",
+    "InventoryCategoryResponse",
+    "InventoryItemBase",
+    "InventoryItemCreate",
+    "InventoryItemUpdate",
+    "InventoryItemResponse",
+    "ChecklistCreate",
+    "ChecklistItemUpdate",
+    "ChecklistItemsUpdate",
+    "ChecklistItemResponse",
+    "ChecklistResponse",
+    "ChecklistSummary",
 ]

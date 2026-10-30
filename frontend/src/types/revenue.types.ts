@@ -18,6 +18,14 @@ export interface Revenue {
   pending_amount: number | null
   external_id: string | null
   notes: string | null
+  checkin_checklist_status?: 'draft' | 'completed' | null
+  checkout_checklist_status?: 'draft' | 'completed' | null
+  checkin_checklist_id?: string | null
+  checkout_checklist_id?: string | null
+  checkin_has_incidents?: boolean
+  checkout_has_incidents?: boolean
+  checkin_performed_by_name?: string | null
+  checkout_performed_by_name?: string | null
   created_at: string
   updated_at: string | null
 }

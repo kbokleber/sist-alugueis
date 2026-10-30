@@ -60,6 +60,14 @@ class RevenueResponse(RevenueBase):
     id: uuid.UUID
     user_id: uuid.UUID
     property_name: Optional[str] = None
+    checkin_checklist_status: Optional[str] = None
+    checkout_checklist_status: Optional[str] = None
+    checkin_checklist_id: Optional[uuid.UUID] = None
+    checkout_checklist_id: Optional[uuid.UUID] = None
+    checkin_has_incidents: bool = False
+    checkout_has_incidents: bool = False
+    checkin_performed_by_name: Optional[str] = None
+    checkout_performed_by_name: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

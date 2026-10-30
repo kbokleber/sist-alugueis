@@ -216,13 +216,13 @@ export default function CategoriesPage() {
       <FormModal
         open={showForm}
         title={editing ? 'Editar categoria' : 'Nova categoria'}
-        description="Defina o nome, tipo, cor e icone da categoria."
+        description={editing ? undefined : 'Defina o nome, tipo, cor e icone da categoria.'}
         onClose={resetForm}
       >
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
           <Input
             label="Nome"
-            placeholder="Ex.: Lavanderia"
+            placeholder={editing ? undefined : 'Ex.: Lavanderia'}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -253,7 +253,7 @@ export default function CategoriesPage() {
 
           <Input
             label="Icone"
-            placeholder="Ex.: home, wrench, sparkles"
+            placeholder={editing ? undefined : 'Ex.: home, wrench, sparkles'}
             value={icon}
             onChange={(e) => setIcon(e.target.value)}
           />

@@ -1,5 +1,17 @@
 from fastapi import APIRouter
-from app.api.v1 import auth, users, properties, revenues, expenses, categories, dashboard, audit
+from app.api.v1 import (
+    auth,
+    users,
+    properties,
+    revenues,
+    expenses,
+    categories,
+    dashboard,
+    audit,
+    inventory_categories,
+    inventory_items,
+    checklists,
+)
 
 
 router = APIRouter(prefix="/v1")
@@ -12,3 +24,6 @@ router.include_router(expenses.router)
 router.include_router(categories.router)
 router.include_router(dashboard.router)
 router.include_router(audit.router)
+router.include_router(inventory_categories.router)
+router.include_router(inventory_items.router)
+router.include_router(checklists.router)

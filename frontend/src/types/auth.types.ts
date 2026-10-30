@@ -1,9 +1,13 @@
+export type AppProfile = 'full' | 'checklist'
+
 export interface User {
   id: string
   email: string
   full_name: string
   is_active: boolean
   is_superuser: boolean
+  /** UI only: full = sistema completo; checklist = só conferências */
+  app_profile?: AppProfile | string
   created_at: string
   updated_at: string | null
 }

@@ -12,12 +12,14 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
     is_superuser: bool = False
+    app_profile: str = "full"
 
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     is_active: bool | None = None
     is_superuser: bool | None = None
+    app_profile: str | None = None
 
 
 class UserPasswordChange(BaseModel):
@@ -31,6 +33,7 @@ class UserResponse(UserBase):
     id: uuid.UUID
     is_active: bool
     is_superuser: bool
+    app_profile: str = "full"
     created_at: datetime
     updated_at: Optional[datetime] = None
 

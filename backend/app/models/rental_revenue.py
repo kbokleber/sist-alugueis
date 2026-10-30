@@ -49,6 +49,9 @@ class RentalRevenue(Base):
     # Relationships
     user = relationship("User", back_populates="revenues")
     property = relationship("Property", back_populates="revenues")
+    stay_checklists = relationship(
+        "StayChecklist", back_populates="rental_revenue", lazy="selectin"
+    )
 
     __table_args__ = (
         Index("idx_revenues_property_month", "property_id", "year_month"),

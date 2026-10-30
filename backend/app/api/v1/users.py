@@ -74,6 +74,7 @@ async def create_user(
             "email": user.email,
             "is_active": user.is_active,
             "is_superuser": user.is_superuser,
+            "app_profile": user.app_profile,
         },
     )
 

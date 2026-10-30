@@ -6,12 +6,14 @@ export interface CreateUserRequest {
   password: string
   full_name: string
   is_superuser?: boolean
+  app_profile?: 'full' | 'checklist'
 }
 
 export interface UpdateUserRequest {
   full_name?: string
   is_active?: boolean
   is_superuser?: boolean
+  app_profile?: 'full' | 'checklist'
 }
 
 export interface ChangePasswordRequest {

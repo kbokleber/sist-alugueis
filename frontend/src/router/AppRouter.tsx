@@ -5,11 +5,15 @@ import LoginPage from '@/pages/LoginPage'
 import DashboardPage from '@/pages/DashboardPage'
 import PropertiesPage from '@/pages/PropertiesPage'
 import PropertyCalendarPage from '@/pages/PropertyCalendarPage'
+import PropertyInventoryPage from '@/pages/PropertyInventoryPage'
+import InventoryCategoriesPage from '@/pages/InventoryCategoriesPage'
 import RevenuesPage from '@/pages/RevenuesPage'
 import ExpensesPage from '@/pages/ExpensesPage'
 import CategoriesPage from '@/pages/CategoriesPage'
 import UsersPage from '@/pages/UsersPage'
 import AuditPage from '@/pages/AuditPage'
+import ConferencesPage from '@/pages/ConferencesPage'
+import { homePathForUser, isChecklistProfile } from '@/lib/appProfile'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
@@ -17,9 +21,18 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <Layout>{children}</Layout>
 }
 
+/** Rotas do sistema completo — perfil checklist é redirecionado. */
+function FullAccessRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAuthStore()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (isChecklistProfile(user)) return <Navigate to="/conferencias" replace />
+  return <Layout>{children}</Layout>
+}
+
 function HomeRedirect() {
-  const { isAuthenticated } = useAuthStore()
-  return <Navigate to={isAuthenticated ? '/dashboard' : '/login'} replace />
+  const { isAuthenticated, user } = useAuthStore()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  return <Navigate to={homePathForUser(user)} replace />
 }
 
 export default function AppRouter() {
@@ -28,70 +41,94 @@ export default function AppRouter() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<HomeRedirect />} />
       <Route
-        path="/dashboard"
+        path="/conferencias"
         element={
           <ProtectedRoute>
-            <DashboardPage />
+            <ConferencesPage />
           </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <FullAccessRoute>
+            <DashboardPage />
+          </FullAccessRoute>
         }
       />
       <Route
         path="/properties"
         element={
-          <ProtectedRoute>
+          <FullAccessRoute>
             <PropertiesPage />
-          </ProtectedRoute>
+          </FullAccessRoute>
         }
       />
       <Route
         path="/properties/:propertyId/calendar"
         element={
-          <ProtectedRoute>
+          <FullAccessRoute>
             <PropertyCalendarPage />
-          </ProtectedRoute>
+          </FullAccessRoute>
+        }
+      />
+      <Route
+        path="/properties/:propertyId/inventory"
+        element={
+          <FullAccessRoute>
+            <PropertyInventoryPage />
+          </FullAccessRoute>
+        }
+      />
+      <Route
+        path="/inventory-categories"
+        element={
+          <FullAccessRoute>
+            <InventoryCategoriesPage />
+          </FullAccessRoute>
         }
       />
       <Route
         path="/revenues"
         element={
-          <ProtectedRoute>
+          <FullAccessRoute>
             <RevenuesPage />
-          </ProtectedRoute>
+          </FullAccessRoute>
         }
       />
       <Route
         path="/expenses"
         element={
-          <ProtectedRoute>
+          <FullAccessRoute>
             <ExpensesPage />
-          </ProtectedRoute>
+          </FullAccessRoute>
         }
       />
       <Route
         path="/categories"
         element={
-          <ProtectedRoute>
+          <FullAccessRoute>
             <CategoriesPage />
-          </ProtectedRoute>
+          </FullAccessRoute>
         }
       />
       <Route
         path="/users"
         element={
-          <ProtectedRoute>
+          <FullAccessRoute>
             <UsersPage />
-          </ProtectedRoute>
+          </FullAccessRoute>
         }
       />
       <Route
         path="/audit"
         element={
-          <ProtectedRoute>
+          <FullAccessRoute>
             <AuditPage />
-          </ProtectedRoute>
+          </FullAccessRoute>
         }
       />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<HomeRedirect />} />
     </Routes>
   )
 }

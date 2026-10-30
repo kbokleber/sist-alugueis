@@ -15,6 +15,11 @@ from app.database import (
     ensure_property_image_url_column,
     ensure_property_financial_columns,
     ensure_revenue_pending_amount_column,
+    ensure_user_app_profile_column,
+    ensure_inventory_categories_property_scope,
+    ensure_inventory_item_detail_columns,
+    ensure_checklist_incident_image_column,
+    ensure_consumable_columns,
 )
 
 logging.basicConfig(
@@ -146,6 +151,11 @@ async def startup_event():
     await ensure_property_image_url_column()
     await ensure_property_financial_columns()
     await ensure_revenue_pending_amount_column()
+    await ensure_user_app_profile_column()
+    await ensure_inventory_item_detail_columns()
+    await ensure_checklist_incident_image_column()
+    await ensure_consumable_columns()
+    await ensure_inventory_categories_property_scope()
     logger.info("startup_complete dev_db_ready=true")
 
 

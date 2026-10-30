@@ -10,7 +10,8 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { FormModal } from '@/components/ui/FormModal'
 import { toast } from '@/stores/toastStore'
 import { formatMoney } from '@/lib/utils'
-import { Plus, Pencil, Trash2, Building, Loader2, Upload } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Plus, Pencil, Trash2, Building, Loader2, Upload, ClipboardList } from 'lucide-react'
 import type { Property, CreatePropertyRequest } from '@/types/property.types'
 
 function PropertyImage({ property }: { property: Property }) {
@@ -204,7 +205,7 @@ export default function PropertiesPage() {
       <FormModal
         open={showForm}
         title={editing ? 'Editar imóvel' : 'Novo imóvel'}
-        description="Preencha os dados do imóvel antes de salvar."
+        description={editing ? undefined : 'Preencha os dados do imóvel antes de salvar.'}
         onClose={resetForm}
       >
         <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -212,20 +213,20 @@ export default function PropertiesPage() {
             label="Código do Imóvel"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            placeholder="Ex: IMV-001"
+            placeholder={editing ? undefined : 'Ex: IMV-001'}
           />
           <Input
             label="Nome do Imóvel"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ex: Apartamento Andorinha"
+            placeholder={editing ? undefined : 'Ex: Apartamento Andorinha'}
             required
           />
           <Input
             label="Endereço"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            placeholder="Endereço completo"
+            placeholder={editing ? undefined : 'Endereço completo'}
           />
           <div className="flex flex-col gap-2 sm:col-span-2 lg:col-span-4">
             <span className="text-sm font-medium text-slate-700">Imagem do imóvel</span>
@@ -260,7 +261,9 @@ export default function PropertiesPage() {
                   Remover imagem
                 </Button>
               ) : null}
-              <span className="text-xs text-slate-500">Formatos: JPG, PNG ou WEBP, até 5 MB.</span>
+              {!editing ? (
+                <span className="text-xs text-slate-500">Formatos: JPG, PNG ou WEBP, até 5 MB.</span>
+              ) : null}
             </div>
           </div>
           <Input
@@ -268,7 +271,7 @@ export default function PropertiesPage() {
             type="number"
             value={propertyValue}
             onChange={(e) => setPropertyValue(e.target.value)}
-            placeholder="500000"
+            placeholder={editing ? undefined : '500000'}
             required
           />
           <Input
@@ -277,7 +280,7 @@ export default function PropertiesPage() {
             step="0.1"
             value={depreciation}
             onChange={(e) => setDepreciation(e.target.value)}
-            placeholder="1"
+            placeholder={editing ? undefined : '1'}
           />
           <Input
             label="Taxa de limpeza padrão (R$)"
@@ -286,7 +289,7 @@ export default function PropertiesPage() {
             min="0"
             value={defaultCleaningFee}
             onChange={(e) => setDefaultCleaningFee(e.target.value)}
-            placeholder="170"
+            placeholder={editing ? undefined : '170'}
           />
           <Input
             label="Taxa da plataforma (%)"
@@ -296,11 +299,14 @@ export default function PropertiesPage() {
             max="99.99"
             value={platformFeePercent}
             onChange={(e) => setPlatformFeePercent(e.target.value)}
-            placeholder="15"
+            placeholder={editing ? undefined : '15'}
           />
-          <p className="sm:col-span-2 text-xs text-slate-500">
-            Percentual sobre o valor líquido (equivalente a % sobre bruto − limpeza). Se vazio, usa o padrão do sistema.
-          </p>
+          {!editing ? (
+            <p className="sm:col-span-2 text-xs text-slate-500">
+              Percentual sobre o valor líquido (equivalente a % sobre bruto − limpeza). Se vazio, usa o
+              padrão do sistema.
+            </p>
+          ) : null}
           <div className="sm:col-span-2 lg:col-span-4 flex justify-end gap-2 border-t border-slate-200 pt-4">
             <Button type="button" variant="outline" onClick={resetForm}>
               Cancelar
@@ -366,16 +372,23 @@ export default function PropertiesPage() {
                     {property.is_active ? 'Ativo' : 'Inativo'}
                   </Badge>
                 </div>
-                <div className="mt-4 flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleEdit(property)}>
-                    <Pencil className="h-3 w-3" />
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link to={`/properties/${property.id}/inventory`} className="flex-1 min-w-[7rem]">
+                    <Button size="sm" variant="outline" className="h-10 w-full">
+                      <ClipboardList className="mr-1 h-3.5 w-3.5" />
+                      Inventário
+                    </Button>
+                  </Link>
+                  <Button size="sm" variant="outline" className="h-10" onClick={() => handleEdit(property)}>
+                    <Pencil className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
+                    className="h-10"
                     onClick={() => setDeleteConfirm(property.id)}
                   >
-                    <Trash2 className="h-3 w-3 text-red-500" />
+                    <Trash2 className="h-3.5 w-3.5 text-red-500" />
                   </Button>
                 </div>
               </CardContent>

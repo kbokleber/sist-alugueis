@@ -27,11 +27,19 @@ class UserService:
         if existing_user:
             raise ValueError("Email already registered")
 
+        profile = (data.app_profile or "full").strip().lower()
+        if profile not in {"full", "checklist"}:
+            raise ValueError("Perfil inválido. Use full ou checklist.")
+
+        # Checklist precisa ver estadias de todos (UI só); por isso vira superuser local.
+        is_superuser = True if profile == "checklist" else data.is_superuser
+
         user = User(
             email=data.email,
             hashed_password=hash_password(data.password),
             full_name=data.full_name,
-            is_superuser=data.is_superuser,
+            is_superuser=is_superuser,
+            app_profile=profile,
         )
         self.db.add(user)
         await self.db.commit()
@@ -40,6 +48,13 @@ class UserService:
 
     async def update(self, user: User, data: UserUpdate) -> User:
         update_data = data.model_dump(exclude_unset=True)
+        if "app_profile" in update_data and update_data["app_profile"] is not None:
+            profile = str(update_data["app_profile"]).strip().lower()
+            if profile not in {"full", "checklist"}:
+                raise ValueError("Perfil inválido. Use full ou checklist.")
+            update_data["app_profile"] = profile
+            if profile == "checklist":
+                update_data["is_superuser"] = True
         for field, value in update_data.items():
             setattr(user, field, value)
         await self.db.commit()

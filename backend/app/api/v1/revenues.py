@@ -21,7 +21,31 @@ from app.utils.audit_helpers import resolve_client_ip, resolve_user_agent
 router = APIRouter(prefix="/revenues", tags=["revenues"])
 
 
+def _checklist_meta(
+    revenue, checklist_type: str
+) -> tuple[str | None, str | None, bool, str | None]:
+    checklists = getattr(revenue, "stay_checklists", None) or []
+    for checklist in checklists:
+        ctype = getattr(checklist.checklist_type, "value", checklist.checklist_type)
+        if ctype == checklist_type:
+            status = getattr(checklist.status, "value", checklist.status)
+            performer = checklist.__dict__.get("performed_by")
+            performed_by_name = None
+            if performer is not None:
+                performed_by_name = getattr(performer, "full_name", None) or getattr(
+                    performer, "email", None
+                )
+            return status, str(checklist.id), bool(checklist.has_incidents), performed_by_name
+    return None, None, False, None
+
+
 def serialize_revenue(revenue) -> RevenueResponse:
+    checkin_status, checkin_id, checkin_incidents, checkin_by = _checklist_meta(
+        revenue, "checkin"
+    )
+    checkout_status, checkout_id, checkout_incidents, checkout_by = _checklist_meta(
+        revenue, "checkout"
+    )
     return RevenueResponse.model_validate(
         {
             "id": revenue.id,
@@ -43,6 +67,14 @@ def serialize_revenue(revenue) -> RevenueResponse:
             "pending_amount": float(revenue.pending_amount) if revenue.pending_amount is not None else None,
             "external_id": revenue.external_id,
             "notes": revenue.notes,
+            "checkin_checklist_status": checkin_status,
+            "checkout_checklist_status": checkout_status,
+            "checkin_checklist_id": checkin_id,
+            "checkout_checklist_id": checkout_id,
+            "checkin_has_incidents": checkin_incidents,
+            "checkout_has_incidents": checkout_incidents,
+            "checkin_performed_by_name": checkin_by,
+            "checkout_performed_by_name": checkout_by,
             "created_at": revenue.created_at,
             "updated_at": revenue.updated_at,
         }

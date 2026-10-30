@@ -44,3 +44,12 @@ class Property(Base):
     owner = relationship("User", back_populates="properties")
     revenues = relationship("RentalRevenue", back_populates="property", lazy="selectin")
     expenses = relationship("PropertyExpense", back_populates="property", lazy="selectin")
+    inventory_items = relationship(
+        "PropertyInventoryItem", back_populates="property", lazy="selectin"
+    )
+    inventory_categories = relationship(
+        "InventoryCategory", back_populates="property", lazy="select"
+    )
+    stay_checklists = relationship(
+        "StayChecklist", back_populates="property", lazy="selectin"
+    )

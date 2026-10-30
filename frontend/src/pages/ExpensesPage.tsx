@@ -495,7 +495,7 @@ export default function ExpensesPage() {
       <FormModal
         open={showForm}
         title={editing ? 'Editar despesa' : 'Nova despesa'}
-        description="Atualize os campos da despesa antes de salvar."
+        description={editing ? undefined : 'Preencha os campos da despesa antes de salvar.'}
         onClose={resetForm}
       >
         <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -539,8 +539,20 @@ export default function ExpensesPage() {
               </label>
             </div>
           )}
-          <Input label="Descrição" placeholder="Descrição da despesa" value={name} onChange={(e) => setName(e.target.value)} />
-          <Input label="Valor (R$)" placeholder="0,00" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+          <Input
+            label="Descrição"
+            placeholder={editing ? undefined : 'Descrição da despesa'}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <Input
+            label="Valor (R$)"
+            placeholder={editing ? undefined : '0,00'}
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            required
+          />
           {editing || !isRecurring ? (
             <>
               <Input

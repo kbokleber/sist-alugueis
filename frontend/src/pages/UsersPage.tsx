@@ -10,7 +10,11 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { FormModal } from '@/components/ui/FormModal'
 import { toast } from '@/stores/toastStore'
 import { KeyRound, Plus, Pencil, Trash2, Users, Check, X, Loader2 } from 'lucide-react'
-import type { User } from '@/types/auth.types'
+import type { AppProfile, User } from '@/types/auth.types'
+import { normalizeAppProfile } from '@/lib/appProfile'
+
+const selectClassName =
+  'rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500'
 
 export default function UsersPage() {
   const [showForm, setShowForm] = useState(false)
@@ -24,6 +28,7 @@ export default function UsersPage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isSuperuser, setIsSuperuser] = useState(false)
+  const [appProfile, setAppProfile] = useState<AppProfile>('full')
   
   const queryClient = useQueryClient()
 
@@ -101,6 +106,7 @@ export default function UsersPage() {
     setFullName('')
     setPassword('')
     setIsSuperuser(false)
+    setAppProfile('full')
     setShowForm(false)
     setEditing(null)
   }
@@ -110,16 +116,28 @@ export default function UsersPage() {
     setEmail(user.email)
     setFullName(user.full_name)
     setIsSuperuser(user.is_superuser)
+    setAppProfile(normalizeAppProfile(user.app_profile))
     setPassword('')
     setShowForm(true)
   }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    const profile = appProfile
+    const superuserFlag = profile === 'checklist' ? true : isSuperuser
     if (editing) {
-      updateMutation.mutate({ id: editing.id, data: { full_name: fullName, is_superuser: isSuperuser } })
+      updateMutation.mutate({
+        id: editing.id,
+        data: { full_name: fullName, is_superuser: superuserFlag, app_profile: profile },
+      })
     } else {
-      createMutation.mutate({ email, full_name: fullName, password, is_superuser: isSuperuser })
+      createMutation.mutate({
+        email,
+        full_name: fullName,
+        password,
+        is_superuser: superuserFlag,
+        app_profile: profile,
+      })
     }
   }
 
@@ -160,7 +178,7 @@ export default function UsersPage() {
       <FormModal
         open={showForm}
         title={editing ? 'Editar usuário' : 'Novo usuário'}
-        description="Preencha os dados do usuário antes de salvar."
+        description={editing ? undefined : 'Preencha os dados do usuário antes de salvar.'}
         onClose={resetForm}
       >
         <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2">
@@ -168,7 +186,7 @@ export default function UsersPage() {
             label="Nome Completo"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="João Silva"
+            placeholder={editing ? undefined : 'João Silva'}
             required
           />
           <Input
@@ -176,7 +194,7 @@ export default function UsersPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="joao@email.com"
+            placeholder={editing ? undefined : 'joao@email.com'}
             disabled={!!editing}
             required
           />
@@ -190,18 +208,40 @@ export default function UsersPage() {
               required={!editing}
             />
           )}
-          <div className="flex items-center gap-2 sm:col-span-2">
-            <input
-              type="checkbox"
-              id="isSuperuser"
-              checked={isSuperuser}
-              onChange={(e) => setIsSuperuser(e.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-primary-600"
-            />
-            <label htmlFor="isSuperuser" className="text-sm text-slate-700">
-              Administrador
-            </label>
+          <div className="flex flex-col gap-1 sm:col-span-2">
+            <label className="text-sm font-medium text-slate-700">Perfil no app</label>
+            <select
+              className={selectClassName}
+              value={appProfile}
+              onChange={(e) => {
+                const value = e.target.value as AppProfile
+                setAppProfile(value)
+                if (value === 'checklist') setIsSuperuser(true)
+              }}
+            >
+              <option value="full">Completo (admin / gestão)</option>
+              <option value="checklist">Checklist (só conferências)</option>
+            </select>
+            {!editing ? (
+              <p className="text-xs text-slate-500">
+                Checklist: ao entrar, vê apenas Entrada/Saída. Completo: sistema igual ao de vocês.
+              </p>
+            ) : null}
           </div>
+          {appProfile === 'full' ? (
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <input
+                type="checkbox"
+                id="isSuperuser"
+                checked={isSuperuser}
+                onChange={(e) => setIsSuperuser(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary-600"
+              />
+              <label htmlFor="isSuperuser" className="text-sm text-slate-700">
+                Administrador (acesso a usuários e todos os dados)
+              </label>
+            </div>
+          ) : null}
           <div className="sm:col-span-2 flex justify-end gap-2 border-t border-slate-200 pt-4">
             <Button type="button" variant="outline" onClick={resetForm}>
               Cancelar
@@ -292,7 +332,13 @@ export default function UsersPage() {
                     <p className="text-sm text-slate-500 truncate">{user.email}</p>
                     <div className="mt-2 flex flex-wrap gap-1">
                       <Badge variant={user.is_active ? 'success' : 'default'}>{user.is_active ? 'Ativo' : 'Inativo'}</Badge>
-                      {user.is_superuser && <Badge variant="info">Admin</Badge>}
+                      {normalizeAppProfile(user.app_profile) === 'checklist' ? (
+                        <Badge variant="warning">Checklist</Badge>
+                      ) : user.is_superuser ? (
+                        <Badge variant="info">Admin</Badge>
+                      ) : (
+                        <Badge variant="default">Completo</Badge>
+                      )}
                     </div>
                   </div>
                 </div>

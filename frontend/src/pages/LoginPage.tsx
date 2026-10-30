@@ -131,6 +131,7 @@ export default function LoginPage() {
           full_name: '',
           is_active: true,
           is_superuser: false,
+          app_profile: 'full',
           created_at: '',
           updated_at: null,
         },

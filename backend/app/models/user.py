@@ -19,6 +19,8 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
+    # UI profile only: "full" (sistema completo) | "checklist" (só conferência)
+    app_profile: Mapped[str] = mapped_column(String(20), default="full", nullable=False)
     keycloak_sub: Mapped[str | None] = mapped_column(
         String(64), unique=True, nullable=True, index=True
     )
