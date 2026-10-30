@@ -39,8 +39,14 @@ async def wait_db() -> None:
 asyncio.run(wait_db())
 PY
 
+echo "[entrypoint] alembic current (before upgrade)"
+alembic current || true
+
 echo "[entrypoint] alembic upgrade head"
 alembic upgrade head
+
+echo "[entrypoint] alembic current (after upgrade)"
+alembic current
 
 if [ "${RUN_SEED:-false}" = "true" ]; then
   echo "[entrypoint] RUN_SEED=true — running seed_data.py"

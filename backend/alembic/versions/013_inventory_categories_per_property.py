@@ -21,17 +21,17 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     bind = op.get_bind()
     dialect = bind.dialect.name
-    inspector = sa.inspect(bind)
 
+    # SQLite: o ensure_inventory_categories_property_scope() no app faz a troca.
+    if dialect == "sqlite":
+        return
+
+    inspector = sa.inspect(bind)
     if "inventory_categories" not in inspector.get_table_names():
         return
 
     cols = {c["name"] for c in inspector.get_columns("inventory_categories")}
     if "property_id" in cols and "user_id" not in cols:
-        return
-
-    # SQLite: o ensure_inventory_categories_property_scope() no app faz a troca.
-    if dialect == "sqlite":
         return
 
     if "property_id" not in cols:
@@ -68,34 +68,40 @@ def upgrade() -> None:
 
     # Categorias órfãs (sem imóvel) não servem no novo modelo
     op.execute(sa.text("DELETE FROM inventory_categories WHERE property_id IS NULL"))
-    op.alter_column("inventory_categories", "property_id", nullable=False)
+    op.alter_column(
+        "inventory_categories",
+        "property_id",
+        existing_type=sa.Uuid(),
+        nullable=False,
+    )
 
-    # Remove vínculo antigo com usuário
+    # Reconsulta constraints após DDL
+    inspector = sa.inspect(bind)
+
     for fk in inspector.get_foreign_keys("inventory_categories"):
-        if fk.get("constrained_columns") == ["user_id"] and fk.get("name"):
+        constrained = fk.get("constrained_columns") or []
+        if list(constrained) == ["user_id"] and fk.get("name"):
             op.drop_constraint(fk["name"], "inventory_categories", type_="foreignkey")
 
-    try:
-        op.drop_constraint(
-            "uq_inventory_categories_user_name",
-            "inventory_categories",
-            type_="unique",
-        )
-    except Exception:
-        pass
+    for uq in inspector.get_unique_constraints("inventory_categories"):
+        if uq.get("name") == "uq_inventory_categories_user_name":
+            op.drop_constraint(
+                "uq_inventory_categories_user_name",
+                "inventory_categories",
+                type_="unique",
+            )
 
-    try:
-        op.drop_index(
-            "ix_inventory_categories_user_id",
-            table_name="inventory_categories",
-        )
-    except Exception:
-        pass
+    for idx in inspector.get_indexes("inventory_categories"):
+        if idx.get("name") == "ix_inventory_categories_user_id":
+            op.drop_index(
+                "ix_inventory_categories_user_id",
+                table_name="inventory_categories",
+            )
 
     if "user_id" in cols:
         op.drop_column("inventory_categories", "user_id")
 
-    # Recria unique/index por imóvel
+    inspector = sa.inspect(bind)
     existing_uniques = {
         uq.get("name") for uq in inspector.get_unique_constraints("inventory_categories")
     }

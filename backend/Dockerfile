@@ -25,7 +25,8 @@ RUN chmod +x scripts/docker-entrypoint.sh \
 # Expose port
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+# start_period alinhado ao compose (migrations + gunicorn em cold start)
+HEALTHCHECK --interval=15s --timeout=10s --start-period=120s --retries=5 \
   CMD curl -fsS http://127.0.0.1:8000/health/ready || exit 1
 
 # Production entrypoint (migrations + gunicorn). Override for local dev.
