@@ -12,6 +12,10 @@ dist/
 build/
 .vite/
 
+# Scripts de desenvolvimento (verificacao visual Playwright, etc.)
+# Nao fazem parte da imagem de producao.
+scripts/
+
 # Git e IDE
 .git/
 .gitignore
