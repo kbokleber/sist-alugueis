@@ -44,6 +44,8 @@ export interface ChecklistItem {
   incident_image_url?: string | null
   is_consumable?: boolean
   sort_order: number
+  /** Miniatura do item de inventário (herdada de property_inventory_items) */
+  image_url?: string | null
 }
 
 export interface StayChecklist {

@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ClipboardList, ImageIcon, Loader2, Pencil, Plus, Trash2, Upload } from 'lucide-react'
+import { ArrowLeft, ClipboardList, Loader2, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { inventoryCategoriesApi, inventoryItemsApi, type InventoryItemPayload } from '@/api/inventory'
 import { propertiesApi } from '@/api/properties'
 import PageContainer from '@/components/layout/PageContainer'
+import { InventoryItemThumb } from '@/components/inventory/InventoryItemThumb'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -30,25 +31,6 @@ function itemDetailLine(item: InventoryItem): string | null {
     item.serial_number ? `Nº série: ${item.serial_number}` : null,
   ].filter(Boolean)
   return parts.length ? parts.join(' · ') : null
-}
-
-function InventoryItemThumb({ name, imageUrl }: { name: string; imageUrl?: string | null }) {
-  const [hasError, setHasError] = useState(false)
-  if (!imageUrl || hasError) {
-    return (
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
-        <ImageIcon className="h-6 w-6" />
-      </div>
-    )
-  }
-  return (
-    <img
-      src={imageUrl}
-      alt={name}
-      className="h-14 w-14 shrink-0 rounded-lg object-cover"
-      onError={() => setHasError(true)}
-    />
-  )
 }
 
 export default function PropertyInventoryPage() {

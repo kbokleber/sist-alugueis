@@ -12,9 +12,11 @@ import {
 } from 'lucide-react'
 import { checklistsApi } from '@/api/inventory'
 import { propertiesApi } from '@/api/properties'
+import { InventoryItemThumb } from '@/components/inventory/InventoryItemThumb'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { FormModal } from '@/components/ui/FormModal'
+import { ImageLightbox } from '@/components/ui/ImageLightbox'
 import { isChecklistProfile } from '@/lib/appProfile'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
@@ -119,6 +121,7 @@ export default function ChecklistFormModal({
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [confirmedCategories, setConfirmedCategories] = useState<Record<string, boolean>>({})
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null)
+  const [zoomImage, setZoomImage] = useState<string | null>(null)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
@@ -390,20 +393,27 @@ export default function ChecklistFormModal({
                           : 'border-slate-200 bg-slate-50'
                       )}
                     >
-                      <div className="mb-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="text-base font-semibold leading-snug text-slate-900">
-                            {item.item_name}
-                          </h4>
-                          {item.is_consumable ? (
-                            <Badge variant="info">Insumo</Badge>
-                          ) : null}
+                      <div className="mb-3 flex items-start gap-3">
+                        <InventoryItemThumb
+                          name={item.item_name}
+                          imageUrl={item.image_url}
+                          size="lg"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="text-base font-semibold leading-snug text-slate-900">
+                              {item.item_name}
+                            </h4>
+                            {item.is_consumable ? (
+                              <Badge variant="info">Insumo</Badge>
+                            ) : null}
+                          </div>
+                          <p className="mt-0.5 text-sm text-slate-500">
+                            {item.is_consumable
+                              ? `Mínimo no imóvel: ${item.quantity_expected}`
+                              : `Esperado: ${item.quantity_expected}`}
+                          </p>
                         </div>
-                        <p className="mt-0.5 text-sm text-slate-500">
-                          {item.is_consumable
-                            ? `Mínimo no imóvel: ${item.quantity_expected}`
-                            : `Esperado: ${item.quantity_expected}`}
-                        </p>
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
@@ -475,11 +485,19 @@ export default function ChecklistFormModal({
                               Foto da intercorrência
                             </span>
                             {draft.incident_image_url ? (
-                              <img
-                                src={draft.incident_image_url}
-                                alt={`Intercorrência — ${item.item_name}`}
-                                className="max-h-56 w-full rounded-xl object-cover"
-                              />
+                              <button
+                                type="button"
+                                onClick={() => setZoomImage(draft.incident_image_url)}
+                                aria-label={`Ampliar foto da intercorrência — ${item.item_name}`}
+                                className="block w-full overflow-hidden rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                              >
+                                <img
+                                  src={draft.incident_image_url}
+                                  alt={`Intercorrência — ${item.item_name}`}
+                                  loading="lazy"
+                                  className="max-h-56 w-full object-cover"
+                                />
+                              </button>
                             ) : null}
                             {!isReadOnly ? (
                               <div className="flex flex-wrap gap-2">
@@ -706,6 +724,12 @@ export default function ChecklistFormModal({
           )}
         </div>
       )}
+      <ImageLightbox
+        src={zoomImage}
+        alt="Foto ampliada"
+        open={Boolean(zoomImage)}
+        onClose={() => setZoomImage(null)}
+      />
     </FormModal>
   )
 }

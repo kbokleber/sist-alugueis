@@ -110,6 +110,8 @@ class ChecklistItemResponse(BaseModel):
     incident_image_url: Optional[str] = None
     is_consumable: bool = False
     sort_order: int
+    # Miniatura do item de inventario (herdada de property_inventory_items)
+    image_url: Optional[str] = None
 
 
 class ChecklistResponse(BaseModel):

@@ -8,6 +8,7 @@ from app.dependencies import get_current_user
 from app.models import User
 from app.schemas import (
     ChecklistCreate,
+    ChecklistItemResponse,
     ChecklistItemsUpdate,
     ChecklistResponse,
     ChecklistSummary,
@@ -26,8 +27,22 @@ def _performed_by_name(checklist) -> str | None:
     return getattr(performer, "full_name", None) or getattr(performer, "email", None)
 
 
+def _serialize_items(checklist) -> list[dict]:
+    """Serializa os itens do checklist herdando a miniatura do inventário."""
+    items: list[dict] = []
+    for item in checklist.items:
+        data = ChecklistItemResponse.model_validate(item).model_dump()
+        inventory_item = item.__dict__.get("inventory_item")
+        data["image_url"] = (
+            getattr(inventory_item, "image_url", None) if inventory_item else None
+        )
+        items.append(data)
+    return items
+
+
 def serialize_checklist(checklist) -> ChecklistResponse:
     payload = ChecklistResponse.model_validate(checklist).model_dump()
+    payload["items"] = _serialize_items(checklist)
     payload["performed_by_name"] = _performed_by_name(checklist)
     return ChecklistResponse.model_validate(payload)
 

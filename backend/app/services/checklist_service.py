@@ -37,6 +37,9 @@ class ChecklistService:
             select(StayChecklist)
             .options(
                 selectinload(StayChecklist.items),
+                selectinload(StayChecklist.items).selectinload(
+                    StayChecklistItem.inventory_item
+                ),
                 selectinload(StayChecklist.rental_revenue),
                 selectinload(StayChecklist.performed_by),
             )
@@ -60,6 +63,9 @@ class ChecklistService:
             select(StayChecklist)
             .options(
                 selectinload(StayChecklist.items),
+                selectinload(StayChecklist.items).selectinload(
+                    StayChecklistItem.inventory_item
+                ),
                 selectinload(StayChecklist.performed_by),
             )
             .where(StayChecklist.rental_revenue_id == revenue_id)
@@ -78,6 +84,9 @@ class ChecklistService:
             .join(RentalRevenue, StayChecklist.rental_revenue_id == RentalRevenue.id)
             .options(
                 selectinload(StayChecklist.items),
+                selectinload(StayChecklist.items).selectinload(
+                    StayChecklistItem.inventory_item
+                ),
                 selectinload(StayChecklist.performed_by),
             )
         )
@@ -173,7 +182,12 @@ class ChecklistService:
     ) -> StayChecklist:
         existing = await self.db.execute(
             select(StayChecklist)
-            .options(selectinload(StayChecklist.items))
+            .options(
+                selectinload(StayChecklist.items),
+                selectinload(StayChecklist.items).selectinload(
+                    StayChecklistItem.inventory_item
+                ),
+            )
             .where(
                 StayChecklist.rental_revenue_id == revenue.id,
                 StayChecklist.checklist_type == checklist_type,
