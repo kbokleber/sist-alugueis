@@ -29,3 +29,7 @@ Thumbs.db
 .env.local
 .env.*.local
 *.db
+
+# Dump de producao (contem dados sensiveis: usuarios, hash de senha, audios/imagens)
+backend/data/prod_dump/
+backend/dev.db.bak_*
