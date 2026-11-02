@@ -33,3 +33,6 @@ Thumbs.db
 # Dump de producao (contem dados sensiveis: usuarios, hash de senha, audios/imagens)
 backend/data/prod_dump/
 backend/dev.db.bak_*
+
+# Capturas de tela geradas pelo script de verificacao responsiva
+frontend/scripts/_shots/

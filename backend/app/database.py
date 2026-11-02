@@ -291,6 +291,118 @@ async def ensure_consumable_columns():
                     await conn.exec_driver_sql(ddl)
 
 
+async def _repair_orphaned_foreign_keys(conn, max_depth: int = 5):
+    """Repara FKs que apontam para tabelas renomeadas/dropadas.
+
+    O SQLite reescreve as FKs das tabelas que REFERENCIAM uma tabela renomeada,
+    apontando para o novo nome. Quando a tabela temporaria e dropada, a FK fica
+    orfa (o PRAGMA foreign_key_check acusa violacoes e o ON DELETE nao funciona).
+
+    Aqui recriamos a tabela que ficou com a FK orfa, copiando os dados e
+    religando as FKs ao nome correto. O processo e recursivo: recriar uma tabela
+    pode deixar outra orfa (ex.: property_inventory_items -> stay_checklist_items).
+    """
+    from sqlalchemy import text
+
+    for _ in range(max_depth):
+        repaired_any = False
+
+        tables = (
+            await conn.exec_driver_sql(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+        ).fetchall()
+        table_names = [row[0] for row in tables]
+
+        for table in table_names:
+            fk_rows = (
+                await conn.exec_driver_sql(f"PRAGMA foreign_key_list({table})")
+            ).fetchall()
+            if not fk_rows:
+                continue
+
+            # Referencia uma tabela que nao existe mais OU que e temporaria
+            # ("*_old") e vai ser dropada em seguida?
+            temporary = {t for t in table_names if t.endswith("_old")}
+            orphaned = [
+                row
+                for row in fk_rows
+                if row[2] not in table_names or row[2] in temporary
+            ]
+            if not orphaned:
+                continue
+
+            columns = (
+                await conn.exec_driver_sql(f"PRAGMA table_info({table})")
+            ).fetchall()
+            if not columns:
+                continue
+
+            col_names = [c[1] for c in columns]
+            col_defs = [f"{c[1]} {c[2]}" for c in columns]
+
+            # PRIMARY KEY: o PRAGMA table_info nao traz a constraint, apenas a
+            # posicao da coluna no PK (campo pk). Sem ela a tabela recriada fica
+            # sem chave primaria e o SQLite acusa "foreign key mismatch".
+            pk_cols = [c[1] for c in sorted(columns, key=lambda c: c[5]) if c[5]]
+            if pk_cols:
+                col_defs.append(f"PRIMARY KEY ({', '.join(pk_cols)})")
+
+            # UNIQUE constraints (via indices) - preserva regras como
+            # uq_inventory_categories_property_name.
+            unique_defs = []
+            for idx in (
+                await conn.exec_driver_sql(f"PRAGMA index_list({table})")
+            ).fetchall():
+                idx_name, idx_unique = idx[1], idx[2]
+                if not idx_unique:
+                    continue
+                if idx_name.startswith("sqlite_autoindex"):
+                    # PK/UNIQUE automaticos ja cobertos pela definicao acima
+                    continue
+                idx_cols = [
+                    row[2]
+                    for row in (
+                        await conn.exec_driver_sql(f"PRAGMA index_info({idx_name})")
+                    ).fetchall()
+                ]
+                if idx_cols:
+                    unique_defs.append(f"UNIQUE ({', '.join(idx_cols)})")
+
+            # Monta as constraints a partir das FKs existentes, trocando o alvo
+            # orfa pelo nome correto (sem sufixo "_old").
+            constraint_lines = list(unique_defs)
+            for row in fk_rows:
+                fk_id, _seq, ref_table, from_col, to_col, on_update, on_delete, _m = row
+                target = ref_table
+                if target.endswith("_old"):
+                    target = target[: -len("_old")]
+                constraint_lines.append(
+                    f"CONSTRAINT fk_{table}_{from_col} "
+                    f"FOREIGN KEY({from_col}) REFERENCES {target} ({to_col}) "
+                    f"ON UPDATE {on_update} ON DELETE {on_delete}"
+                )
+
+            old_name = f"{table}_old"
+            select_cols = ", ".join(col_names)
+            await conn.exec_driver_sql(f"ALTER TABLE {table} RENAME TO {old_name}")
+            await conn.exec_driver_sql(
+                "CREATE TABLE {} ({}{})".format(
+                    table,
+                    ", ".join(col_defs),
+                    (", " + ", ".join(constraint_lines)) if constraint_lines else "",
+                )
+            )
+            await conn.exec_driver_sql(
+                f"INSERT INTO {table} ({select_cols}) SELECT {select_cols} FROM {old_name}"
+            )
+            await conn.exec_driver_sql(f"DROP TABLE {old_name}")
+            repaired_any = True
+
+        if not repaired_any:
+            return
+
+
 async def ensure_inventory_categories_property_scope():
     """Garante categorias de inventário por imóvel (não por usuário)."""
     import uuid as uuid_mod
@@ -356,6 +468,11 @@ async def ensure_inventory_categories_property_scope():
                     )
 
         if already_ok:
+            # FK orfa: o SQLite reescreve as FKs que referenciam uma tabela
+            # renomeada. Se property_inventory_items ainda aponta para
+            # "inventory_categories_old" (tabela que foi dropada), a FK
+            # precisa ser refeita antes de prosseguir.
+            await _repair_orphaned_foreign_keys(conn)
             await seed_named_properties()
             return
 
@@ -382,6 +499,10 @@ async def ensure_inventory_categories_property_scope():
         await conn.exec_driver_sql(
             "ALTER TABLE inventory_categories RENAME TO inventory_categories_old"
         )
+        # O SQLite reescreve a FK das tabelas que REFERENCIAM a tabela renomeada,
+        # apontando para "inventory_categories_old". Como ela e dropada no fim,
+        # as FKs ficariam orfas (PRAGMA foreign_key_check acusaria).
+        await _repair_orphaned_foreign_keys(conn)
         await conn.exec_driver_sql(
             """
             CREATE TABLE inventory_categories (

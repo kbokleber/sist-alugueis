@@ -139,6 +139,24 @@ def truncate_all(conn):
     conn.execute("PRAGMA foreign_keys = ON")
 
 
+def drop_orphan_tables(conn):
+    """Remove tabelas temporarias que sobraram de migracoes do SQLite.
+
+    O SQLite reescreve as FKs ao renomear uma tabela e, em alguns casos,
+    deixa tabelas "_old" orfas no banco. Elas nao devem sobreviver a um dump.
+    """
+    orphans = [
+        row[0]
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%\\_old' ESCAPE '\\'"
+        )
+    ]
+    for table in orphans:
+        conn.execute("DROP TABLE IF EXISTS " + table)
+        print("  removida tabela orfa: %s" % table)
+    return orphans
+
+
 def import_table(conn, table, columns, rows):
     if not rows:
         print("  %s: vazio" % table)
@@ -190,6 +208,14 @@ def verify(conn):
          "SELECT COUNT(*) FROM property_expenses e JOIN financial_categories c ON c.id = e.category_id"),
         ("inv. categories -> properties",
          "SELECT COUNT(*) FROM inventory_categories i JOIN properties p ON p.id = i.property_id"),
+        ("inv. items -> categories",
+         "SELECT COUNT(*) FROM property_inventory_items i JOIN inventory_categories c ON c.id = i.category_id"),
+        ("checklists -> revenues",
+         "SELECT COUNT(*) FROM stay_checklists s JOIN rental_revenues r ON r.id = s.rental_revenue_id"),
+        ("checklist items -> checklists",
+         "SELECT COUNT(*) FROM stay_checklist_items i JOIN stay_checklists s ON s.id = i.checklist_id"),
+        ("checklist items -> inv. items",
+         "SELECT COUNT(*) FROM stay_checklist_items i JOIN property_inventory_items p ON p.id = i.inventory_item_id"),
         ("audit -> users",
          "SELECT COUNT(*) FROM audit_logs a JOIN users u ON u.id = a.user_id"),
     ]
@@ -223,6 +249,7 @@ def main():
         if not args.keep_existing:
             print("Limpando tabelas existentes...")
             truncate_all(conn)
+            drop_orphan_tables(conn)
 
         print("Importando de %s para %s" % (args.dump_dir, args.db))
         total = 0
