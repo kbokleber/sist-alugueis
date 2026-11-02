@@ -1,13 +1,23 @@
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, CalendarDays, ArrowLeft } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  CalendarDays,
+  ArrowLeft,
+  User,
+  CalendarRange,
+  Wallet,
+  NotebookPen,
+} from 'lucide-react'
 import { propertiesApi } from '@/api/properties'
 import { revenuesApi } from '@/api/revenues'
 import PageContainer from '@/components/layout/PageContainer'
 import { Card, CardContent, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { FormModal } from '@/components/ui/FormModal'
+import { DetailRow, DetailSection, DetailSheet } from '@/components/ui/DetailSheet'
 import type { Revenue } from '@/types/revenue.types'
 
 const WEEKDAY_LABELS = ['seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.', 'dom.']
@@ -298,60 +308,92 @@ export default function PropertyCalendarPage() {
       <FormModal
         open={selectedReservation !== null}
         title={selectedReservation ? getReservationLabel(selectedReservation) : 'Reserva'}
-        description={selectedReservation ? 'Detalhes da reserva selecionada' : undefined}
+        description={selectedReservation ? 'Ficha da reserva' : undefined}
         onClose={() => setSelectedReservation(null)}
       >
         {selectedReservation ? (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Hóspede</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{selectedReservation.guest_name}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Reserva</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{selectedReservation.external_id || 'Não informado'}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Entrada</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">
-                {selectedReservation.checkin_date ? formatPeriod(selectedReservation.checkin_date, null) : 'Não informada'}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Saída</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">
-                {selectedReservation.checkout_date ? formatPeriod(selectedReservation.checkout_date, null) : 'Não informada'}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Valor líquido</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{formatMoney(selectedReservation.net_amount)}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Valor bruto</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{formatMoney(selectedReservation.gross_amount)}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Limpeza</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{formatMoney(selectedReservation.cleaning_fee)}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Taxa da plataforma</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{formatMoney(selectedReservation.platform_fee)}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Noites</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{selectedReservation.nights}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Origem</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{selectedReservation.listing_source || 'Não informada'}</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:col-span-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Observações</p>
-              <p className="mt-1 text-sm text-slate-700">{selectedReservation.notes || 'Sem observações.'}</p>
-            </div>
-          </div>
+          <DetailSheet>
+            <DetailSection title="Reserva" icon={User}>
+              <DetailRow label="Hóspede" value={selectedReservation.guest_name} />
+              <DetailRow
+                label="Código"
+                value={selectedReservation.external_id || 'Não informado'}
+              />
+              <DetailRow
+                label="Imóvel"
+                value={selectedReservation.property_name || 'Não informado'}
+              />
+              <DetailRow
+                label="Origem"
+                value={selectedReservation.listing_source || 'Não informada'}
+              />
+            </DetailSection>
+
+            <DetailSection title="Período" icon={CalendarRange}>
+              <DetailRow
+                label="Entrada"
+                value={
+                  selectedReservation.checkin_date
+                    ? formatPeriod(selectedReservation.checkin_date, null)
+                    : 'Não informada'
+                }
+              />
+              <DetailRow
+                label="Saída"
+                value={
+                  selectedReservation.checkout_date
+                    ? formatPeriod(selectedReservation.checkout_date, null)
+                    : 'Não informada'
+                }
+              />
+              <DetailRow label="Noites" value={selectedReservation.nights} />
+              <DetailRow
+                label="Competência"
+                value={
+                  selectedReservation.year_month
+                    ? selectedReservation.year_month.replace('-', '/')
+                    : 'Não informada'
+                }
+              />
+            </DetailSection>
+
+            <DetailSection title="Valores" icon={Wallet}>
+              <DetailRow
+                label="Valor bruto"
+                value={formatMoney(selectedReservation.gross_amount)}
+              />
+              <DetailRow
+                label="Taxa de limpeza"
+                value={formatMoney(selectedReservation.cleaning_fee)}
+              />
+              <DetailRow
+                label="Taxa da plataforma"
+                value={formatMoney(selectedReservation.platform_fee)}
+              />
+              {selectedReservation.pending_amount ? (
+                <DetailRow
+                  label="Pendência"
+                  value={formatMoney(selectedReservation.pending_amount)}
+                  valueClassName="font-bold text-red-700"
+                />
+              ) : null}
+              <DetailRow
+                label="Valor líquido"
+                value={formatMoney(selectedReservation.net_amount)}
+                emphasis
+                highlight
+              />
+            </DetailSection>
+
+            <DetailSection title="Observações" icon={NotebookPen}>
+              <DetailRow
+                label="Anotações"
+                value={selectedReservation.notes || 'Sem observações.'}
+                valueClassName="font-normal text-slate-700"
+                fullWidth
+              />
+            </DetailSection>
+          </DetailSheet>
         ) : null}
       </FormModal>
     </PageContainer>
