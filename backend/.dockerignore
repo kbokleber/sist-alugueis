@@ -1,0 +1,51 @@
+# Nunca copiar segredos ou dados locais para a imagem de producao.
+.env
+.env.*
+!.env.example
+
+# Banco de dados local (SQLite) e backups
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+dev.db*
+backend/dev.db*
+
+# Dump de producao exportado (contem hash de senha, fotos e audios)
+data/prod_dump/
+data/
+
+# Ferramentas de dump/import de producao: uteis so no dev local.
+# Nao fazem parte da imagem de producao.
+scripts/dump_prod.sh
+scripts/import_prod_dump.py
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Testes e docs
+tests/
+pytest.ini
+docs/
+
+# Git e IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+
+# Diversos
+*.log
+.DS_Store
+Thumbs.db

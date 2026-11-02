@@ -1,0 +1,25 @@
+# Nunca copiar segredos ou dados locais para a imagem de producao.
+.env
+.env.*
+!.env.example
+
+# Dependencias (reinstaladas dentro da imagem)
+node_modules/
+npm-debug.log*
+
+# Build
+dist/
+build/
+.vite/
+
+# Git e IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+
+# Diversos
+*.log
+.DS_Store
+Thumbs.db
